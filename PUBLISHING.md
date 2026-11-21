@@ -14,7 +14,7 @@ The project is prepared locally; no remote repository is created by these instru
 git status --short
 git ls-files
 git check-ignore .env
-python scripts/check_release.py
+.\.venv\Scripts\python.exe scripts/check_release.py
 ```
 
 The reviewed commit contains source, tests, documentation, and `.env.example` with an empty token.

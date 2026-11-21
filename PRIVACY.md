@@ -5,7 +5,7 @@ server ID. RoundForge sends requests only to Discord and the public Codeforces A
 it does not use analytics, advertising, or AI services.
 
 Stored data includes Discord server/member/channel/role IDs, linked Codeforces handles and ratings,
-short-lived verification codes, server settings, practice goals, daily claims, game rosters/results,
+verification codes valid for ten minutes, server settings, practice goals, daily claims, game rosters/results,
 and voice recovery ownership. It does not request Codeforces passwords/API keys, read message content,
 record voice audio, or store payment information. The bot's Discord token belongs in local environment
 configuration, not the database or repository.
@@ -15,7 +15,8 @@ before voice changes begin. Menus are private to the opener. Game messages use t
 channel's existing audience; they are not automatically confidential.
 
 `/handle unlink` removes the current handle link and pending verification. It does not erase historical
-claims/games, which remain for duplicate prevention, results, and recovery. `/training stop` and
+claims/games, which remain for duplicate prevention, results, and recovery. Expired verification
+rows remain until replaced by a new link attempt or removed by unlinking. `/training stop` and
 `/upsolve stop` remove those current goals. Departed members' current links are pruned during community
 refresh; historic activity records remain. Contact the instance operator for additional data removal.
 There is no automatic history retention expiry in this version. Backups can retain older data.
