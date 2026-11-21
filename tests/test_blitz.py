@@ -233,7 +233,8 @@ class BlitzTests(unittest.IsolatedAsyncioTestCase):
         second = await self.game((4, 5))
         self.data.update_match(first["id"], state="starting")
         replacement = Blitz(self.blitz.community, self.data, self.voice)
-        await replacement.recover(10)
+        with patch("just_bot.blitz.time.time", return_value=1500):
+            await replacement.recover(10)
         self.assertEqual(self.data.match(10, first["id"])["state"], "cancelled")
         self.assertEqual(self.data.match(10, second["id"])["state"], "active")
         self.assertEqual(self.voice.muted, {4, 5})
@@ -382,6 +383,39 @@ class BlitzTests(unittest.IsolatedAsyncioTestCase):
         await self.blitz.voice_changed(10, 1)
         self.assertFalse(self.voice.muted | self.voice.deafened)
         self.assertIsNone(self.data.slot(10, 1))
+
+    async def test_candidate_winner_is_confirmed_against_previously_queried_players(self):
+        match = await self.game((1, 2))
+        calls = {"player1": 0, "player2": 0}
+        async def racing_history(handle, **kwargs):
+            calls[handle] += 1
+            if handle == "player1":
+                return [] if calls[handle] == 1 else [submission(1100)]
+            return [submission(1200)]
+        self.cf.submissions.side_effect = racing_history
+        await self.blitz.poll(10, match["id"])
+        result = self.data.match(10, match["id"])
+        self.assertEqual(result["state"], "finished")
+        self.assertEqual(result["winner_id"], 1)
+        self.assertTrue(all(count >= 2 for count in calls.values()))
+
+    async def test_recovery_reapplies_unexpired_voice_policy_but_never_mutes_the_manager(self):
+        match = await self.blitz.host(10, 99, [1, 2], {"voice_mode": "both"})
+        await self.blitz.accept(10, match["id"], 1)
+        match = await self.blitz.accept(10, match["id"], 2)
+        self.voice.muted.clear()
+        self.voice.deafened.clear()
+        with patch("just_bot.blitz.time.time", return_value=match["starts_at"] + 10):
+            await self.blitz.recover(10)
+        self.assertEqual(self.voice.muted, {1, 2})
+        self.assertEqual(self.voice.deafened, {1, 2})
+
+    async def test_recovery_releases_expired_games_instead_of_reapplying_voice_effects(self):
+        match = await self.game((1, 2), voice_mode="both")
+        with patch("just_bot.blitz.time.time", return_value=2001):
+            await self.blitz.recover(10)
+        self.assertEqual(self.data.match(10, match["id"])["state"], "settling")
+        self.assertFalse(self.voice.muted | self.voice.deafened)
 
 
 class BlitzOptionsTests(unittest.TestCase):

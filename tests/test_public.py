@@ -40,6 +40,20 @@ class PublicBotTests(unittest.IsolatedAsyncioTestCase):
         self.assertFalse(await self.bot.tree.interaction_check(self.interaction(10, channel=20)))
         self.assertTrue(await self.bot.tree.interaction_check(self.interaction(11, channel=20)))
 
+    async def test_pending_lobby_channel_exception_includes_manager_and_players_only(self):
+        for user in (1, 2):
+            handle = f"player{user}"
+            self.bot.store.start_link(10, user, handle, "n", 9999999999)
+            self.bot.store.complete_link(10, user, "n", {"handle": handle}, 1)
+        self.bot.store.channel_rule(10, "add", 20)
+        self.bot.store.channel_rule(11, "add", 20)
+        match = await self.bot.blitz.host(10, 99, [1, 2], {"manager_id": 88, "text_channel_id": 30})
+        self.assertIsNone(match["text_id"])
+        self.assertTrue(await self.bot.tree.interaction_check(self.interaction(10, channel=30, user=88)))
+        self.assertTrue(await self.bot.tree.interaction_check(self.interaction(10, channel=30, user=1)))
+        self.assertFalse(await self.bot.tree.interaction_check(self.interaction(10, channel=30, user=77)))
+        self.assertFalse(await self.bot.tree.interaction_check(self.interaction(11, channel=30, user=88)))
+
     async def test_global_sync_does_not_copy_commands_to_one_server(self):
         self.bot.tree.sync = AsyncMock(return_value=[])
         with patch.object(self.bot.feeds, "start"), patch.object(self.bot.hourly_refresh, "start"), patch.object(self.bot.blitz_clock, "start"):

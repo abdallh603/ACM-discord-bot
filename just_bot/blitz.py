@@ -281,6 +281,19 @@ class Blitz:
                 match = self.data.match(guild, snapshot["id"])
                 if match["state"] == "starting":
                     await self._finish(match, "cancelled", "Interrupted during match setup; recovered after restart.")
+                elif match["state"] == "active":
+                    if match["ends_at"] is not None and int(time.time()) >= match["ends_at"]:
+                        self.data.update_match(match["id"], state="settling")
+                        await self._cleanup(self.data.match(guild, match["id"]))
+                    else:
+                        for player in self.data.players(match["id"]):
+                            if player["solved_at"] is None:
+                                try:
+                                    await self.platform.enter(match, player)
+                                except Exception:
+                                    log.exception("Blitz %s: voice policy recovery failed for %s",
+                                                  match["id"], player["user_id"])
+                        await self._cleanup(match)
                 elif match["state"] in TERMINAL:
                     await self._cleanup(match)
 
@@ -329,9 +342,13 @@ class Blitz:
                     task = self.polls.get(mid)
                     if task and not task.done():
                         task.cancel()
-                    winner, outcome = solve_outcome(self.data.players(mid))
+                    players = self.data.players(mid)
+                    winner, outcome = solve_outcome(players)
                     last = self.last_poll.get(mid, {})
-                    reliable = last.get("complete", False) and last.get("checked_at", 0) >= match["ends_at"]
+                    reliable = (last.get("complete", False)
+                                and last.get("observed_after", 0) >= match["ends_at"]
+                                and (not any(p["solved_at"] is not None for p in players)
+                                     or last.get("confirmed", False)))
                     pending = self.last_poll.get(mid, {}).get("pending", False)
                     if not reliable or pending:
                         await self._finish(match, "unresolved", "Verification was unavailable or judging is still pending. Voices released.")
@@ -342,11 +359,15 @@ class Blitz:
             elif match["state"] in TERMINAL:
                 await self._cleanup(match)
 
-    async def poll(self, guild, match_id):
+    async def poll(self, guild, match_id, *, confirmed=False):
         match = self.data.match(guild, match_id)
+        if match["state"] not in {"active", "settling"}:
+            return
+        observed_after = int(time.time())
         results = {}
         pending_stamps = []
         complete = True
+        confirm_candidate = False
         try:
             for player in self.data.players(match_id):
                 try:
@@ -377,7 +398,8 @@ class Blitz:
                     return
                 pending_stamps = [s for s in pending_stamps if within_window(s, match["starts_at"], match["ends_at"])]
                 self.last_poll[match_id] = {"complete": complete, "pending": bool(pending_stamps),
-                                            "checked_at": int(time.time())}
+                                            "checked_at": int(time.time()), "observed_after": observed_after,
+                                            "confirmed": confirmed}
                 for user, accepted in results.items():
                     if accepted and within_window(accepted["creationTimeSeconds"], match["starts_at"], match["ends_at"]):
                         self.data.update_player(match_id, user, solved_at=accepted["creationTimeSeconds"])
@@ -388,10 +410,17 @@ class Blitz:
                 if (complete and earliest is not None and not earlier_pending
                         and (match["options"]["end_rule"] == "first_solve"
                              or all(p["solved_at"] is not None for p in players))):
-                    await self._finish(match, "finished", outcome, winner)
+                    if confirmed:
+                        await self._finish(match, "finished", outcome, winner)
+                    else:
+                        # Earlier queried players may have submitted while later histories
+                        # were being fetched. Re-read everyone after observing a candidate.
+                        confirm_candidate = True
                 elif match["options"]["end_rule"] == "all_solve":
                     # Each solver is unmuted immediately; the other player may continue.
                     await self._cleanup(match)
+            if confirm_candidate:
+                await self.poll(guild, match_id, confirmed=True)
         except asyncio.CancelledError:
             raise
         except Exception:

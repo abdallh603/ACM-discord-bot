@@ -160,7 +160,8 @@ managers, and players need access to that channel.
 ```
 
 The bot checks accepted solo CF practice submissions after the countdown and before the deadline,
-if any. It compares submission timestamps across players; equal earliest timestamps mean a draw.
+if any. It confirms candidate results against another fresh set of player histories before finalizing
+the winner, then compares submission timestamps; equal earliest timestamps mean a draw.
 Every player may cancel their own game at any time. A player can have one pending/running game
 at a time to avoid conflicting voice effects; managers who are not players are not reserved.
 

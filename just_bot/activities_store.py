@@ -109,6 +109,15 @@ class Activities:
             "SELECT * FROM blitz_players WHERE match_id=? ORDER BY user_id", (match_id,)
         )]
 
+    def in_channel(self, guild, channel):
+        rows = self.db.execute(
+            "SELECT id FROM blitz_matches WHERE guild_id=? AND "
+            "(text_id=? OR state IN ('pending','starting'))", (guild, channel)
+        ).fetchall()
+        matches = [self.match(guild, row[0]) for row in rows]
+        return [m for m in matches if m["text_id"] == channel
+                or (m["state"] in {"pending", "starting"} and m["options"].get("text_channel_id") == channel)]
+
     def update_match(self, match_id, **changes):
         allowed = {"state", "options", "problem", "starts_at", "ends_at", "winner_id", "outcome",
                    "closed_at", "text_id", "voice_id", "announced"}

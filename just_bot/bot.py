@@ -47,9 +47,8 @@ class CommunityTree(app_commands.CommandTree):
         if allowed and interaction.channel_id not in allowed:
             # Organizers may configure the bot from another channel.
             private_game = any(
-                bot.blitz.can_access(bot.activities.match(interaction.guild_id, row[0]), interaction.user.id)
-                for row in bot.store.db.execute("SELECT id FROM blitz_matches WHERE guild_id=? AND text_id=?",
-                                               (interaction.guild_id, interaction.channel_id))
+                bot.blitz.can_access(match, interaction.user.id)
+                for match in bot.activities.in_channel(interaction.guild_id, interaction.channel_id)
             )
             if not interaction.permissions.manage_guild and not private_game:
                 await reply_error(interaction, "Use a designated bot channel for commands.")
