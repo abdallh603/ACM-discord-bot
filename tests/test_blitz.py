@@ -417,6 +417,22 @@ class BlitzTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(self.data.match(10, match["id"])["state"], "settling")
         self.assertFalse(self.voice.muted | self.voice.deafened)
 
+    async def test_partial_all_solve_game_uses_complete_post_deadline_results(self):
+        match = await self.game((1, 2), end_rule="all_solve")
+        self.data.update_match(match["id"], state="settling")
+        async def history(handle, **kwargs):
+            return [submission(1100)] if handle == "player1" else []
+        self.cf.submissions.side_effect = history
+        for stamp in (2001, 2100):
+            with patch("just_bot.blitz.time.time", return_value=stamp):
+                await self.blitz.poll(10, match["id"])
+        with patch("just_bot.blitz.time.time", return_value=2121):
+            await self.blitz.tick(10)
+        result = self.data.match(10, match["id"])
+        self.assertEqual(result["state"], "finished")
+        self.assertEqual(result["winner_id"], 1)
+        self.assertFalse(self.voice.muted)
+
 
 class BlitzOptionsTests(unittest.TestCase):
     def test_manual_problem_ids_and_urls(self):

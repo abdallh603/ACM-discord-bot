@@ -345,10 +345,11 @@ class Blitz:
                     players = self.data.players(mid)
                     winner, outcome = solve_outcome(players)
                     last = self.last_poll.get(mid, {})
+                    # Every query in a post-deadline pass starts after the eligible
+                    # submission window closed. This also confirms partial all_solve
+                    # results, which need not wait for every player to finish.
                     reliable = (last.get("complete", False)
-                                and last.get("observed_after", 0) >= match["ends_at"]
-                                and (not any(p["solved_at"] is not None for p in players)
-                                     or last.get("confirmed", False)))
+                                and last.get("observed_after", 0) >= match["ends_at"])
                     pending = self.last_poll.get(mid, {}).get("pending", False)
                     if not reliable or pending:
                         await self._finish(match, "unresolved", "Verification was unavailable or judging is still pending. Voices released.")
