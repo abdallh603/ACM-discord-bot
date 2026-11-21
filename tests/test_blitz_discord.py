@@ -143,3 +143,27 @@ class VoiceAdapterTests(unittest.IsolatedAsyncioTestCase):
         self.data.free_slots(self.match["id"])
         self.assertTrue(self.data.players(self.match["id"])[0]["owns_deaf"])
         self.assertIsNotNone(self.data.slot(10, 1))
+
+    async def test_stale_gateway_flags_still_trigger_explicit_restoration(self):
+        self.set_mode("both")
+        await self.adapter.enter(self.match, self.data.players(self.match["id"])[0])
+        # The server edit succeeded, but the gateway still exposes the old flags.
+        self.members[1].voice.mute = False
+        self.members[1].voice.deaf = False
+        await self.adapter.cleanup(self.closed_match())
+        self.assertEqual(self.members[1].edit.await_count, 2)
+        kwargs = self.members[1].edit.await_args.kwargs
+        self.assertEqual((kwargs["mute"], kwargs["deafen"]), (False, False))
+        player = self.data.players(self.match["id"])[0]
+        self.assertEqual((player["owns_mute"], player["owns_deaf"]), (0, 0))
+
+    async def test_stale_flags_do_not_drop_recovery_on_failed_restore(self):
+        import discord
+        self.set_mode("both")
+        await self.adapter.enter(self.match, self.data.players(self.match["id"])[0])
+        self.members[1].voice.mute = self.members[1].voice.deaf = False
+        self.members[1].edit.side_effect = discord.Forbidden(SimpleNamespace(status=403, reason="Forbidden"), "Missing permission")
+        with self.assertLogs("just_bot.blitz_discord", level="WARNING"):
+            await self.adapter.cleanup(self.closed_match())
+        player = self.data.players(self.match["id"])[0]
+        self.assertEqual((player["owns_mute"], player["owns_deaf"]), (1, 1))

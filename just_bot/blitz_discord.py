@@ -184,9 +184,11 @@ class DiscordBlitz:
                         # Retain ownership and retry when they next join voice.
                         continue
                     changes = {}
-                    if player["owns_mute"] and voice.mute:
+                    # Gateway flags can lag behind an already successful REST edit.
+                    # Restore owned flags idempotently before dropping recovery intent.
+                    if player["owns_mute"]:
                         changes["mute"] = False
-                    if player["owns_deaf"] and voice.deaf:
+                    if player["owns_deaf"]:
                         changes["deafen"] = False
                     if changes:
                         await member.edit(**changes, reason=f"Blitz {match['id']} voice release")

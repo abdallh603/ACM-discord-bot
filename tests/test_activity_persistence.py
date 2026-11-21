@@ -9,6 +9,24 @@ from just_bot.storage import SCHEMA, Store
 
 
 class ActivityPersistenceTests(unittest.TestCase):
+    def test_upgrade_preserves_old_jordan_timezone_and_defaults_new_servers_to_utc(self):
+        with tempfile.TemporaryDirectory() as temp:
+            path = Path(temp) / "bot.sqlite3"
+            legacy = SCHEMA.replace(", timezone TEXT NOT NULL DEFAULT 'UTC'", "")
+            connection = sqlite3.connect(path)
+            connection.executescript(legacy + ACTIVITY_SCHEMA)
+            connection.execute("INSERT INTO guild_settings(guild_id) VALUES (10)")
+            connection.execute("PRAGMA user_version=3")
+            connection.commit()
+            connection.close()
+            store = Store(path)
+            try:
+                self.assertEqual(store.timezone(10).key, "Asia/Amman")
+                self.assertEqual(store.timezone(11).key, "UTC")
+                self.assertEqual(store.db.execute("PRAGMA user_version").fetchone()[0], 4)
+            finally:
+                store.close()
+
     def test_upgrade_from_v2_adds_deafen_recovery_without_losing_mute_records(self):
         with tempfile.TemporaryDirectory() as temp:
             path = Path(temp) / "bot.sqlite3"
