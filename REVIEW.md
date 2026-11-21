@@ -67,3 +67,28 @@ Standards: **1 finding, fixed**; worst initial issue: P1 voice recovery.
 Specification: **4 findings, fixed**; worst initial issue: P2 correctness/authorization/recovery.
 No remote repository was created or uploaded. [USAGE.md](USAGE.md) and [PUBLISHING.md](PUBLISHING.md)
 provide the user-facing guide and manual publication steps.
+
+## Version 0.5.0 usability review
+
+Added a no-arguments player picker, multi-topic dropdowns with ANY matching and selections
+preserved across pages, a duration modal, and separate everyone-finishes/standings toggles.
+Invitations now show persistent Accept/Decline/Status buttons with shared readiness updates.
+Players still consent individually; changes invalidate old revisions.
+
+The startup lifecycle now has a durable countdown phase. The visible 10-second countdown
+keeps the problem hidden and applies no voice effects until it completes. Cancellation is
+available during the countdown without blocking unrelated games. Shutdown cancels/awaits
+startup tasks, and restart recovery cancels interrupted countdowns. Active panels offer solve
+checks, standings, cancellation, and status. Pending and active panels are registered again
+after restart. No database schema migration was needed; message IDs are stored in game options.
+
+Standings reuse one message, show solve times and shared ranks for tied timestamps, and distinguish
+live, final, and incomplete results. The menu and direct commands can disable them before play.
+Failed invitation delivery releases reserved player slots. Existing room reuse, per-server
+isolation, winner confirmation, deadlines, and ownership-based voice recovery remain covered.
+
+Validation: **153 automated tests passed, no skips** with the installed discord.py dependency;
+`git diff --check` passed. These checks include button authorization and stale revisions,
+countdown rendering/cancellation, shutdown/restart recovery, concurrent games, multi-topic
+selection, duration input, failed delivery, and standings updates/ties. No live multi-account
+Discord test was performed. Restart the bot to load the code and refresh its command registration.

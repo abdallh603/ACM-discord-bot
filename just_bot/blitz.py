@@ -8,7 +8,7 @@ import re
 import time
 from urllib.parse import urlparse
 
-from .blitz_options import voice_settings
+from .blitz_options import TOPICS, voice_settings
 from .domain import UserError, accepted_submission, problem_key, within_window
 
 log = logging.getLogger(__name__)
@@ -42,7 +42,8 @@ def validate_options(options):
         options.update(voice_settings(mode))
     result = {"minutes": None, "rating_min": None, "rating_max": None, "tag": None,
               "random_topic": False, "manual": None, "end_rule": "first_solve",
-              "mute_voice": True, "deaf_voice": False, "move_voice": True, "revision": 1, **options}
+              "mute_voice": True, "deaf_voice": False, "move_voice": True, "revision": 1,
+              "tags": [], "show_standings": True, **options}
     if result["minutes"] is not None and not 1 <= result["minutes"] <= 180:
         raise UserError("Blitz duration must be 1–180 minutes, or omitted for unlimited time.")
     for key in ("rating_min", "rating_max"):
@@ -55,11 +56,17 @@ def validate_options(options):
         result["tag"] = result["tag"].strip().lower()
         if not result["tag"] or len(result["tag"]) > 50:
             raise UserError("Use a Codeforces topic such as dp, greedy, or binary search.")
-    if result["tag"] and result["random_topic"]:
+    tags = result["tags"]
+    if not isinstance(tags, list) or any(not isinstance(t, str) for t in tags):
+        raise UserError("Choose topics from the topic menu.")
+    result["tags"] = sorted({t.strip().lower() for t in tags})
+    if any(t not in TOPICS for t in result["tags"]):
+        raise UserError("Choose supported Codeforces topics from the menu.")
+    if (result["tag"] or result["tags"]) and result["random_topic"]:
         raise UserError("Choose either a selected topic or a random topic.")
     if result["manual"]:
         parse_problem(result["manual"])
-        if result["tag"] or result["random_topic"] or result["rating_min"] or result["rating_max"]:
+        if result["tag"] or result["tags"] or result["random_topic"] or result["rating_min"] or result["rating_max"]:
             raise UserError("For a manual problem, clear rating and topic filters first.")
     if result["end_rule"] not in {"first_solve", "all_solve"}:
         raise UserError("Choose first_solve or all_solve.")
@@ -90,6 +97,16 @@ class Blitz:
         self.polls = {}
         self.clocks = {}
         self.last_poll = {}
+        self.startups = {}
+
+    async def notify_lobby(self, match):
+        """Presentation failures must not prevent cleanup or strand a match."""
+        callback = getattr(self.platform, "update_lobby", None)
+        if callback:
+            try:
+                await callback(match)
+            except Exception:
+                log.warning("Could not refresh blitz invitation %s", match["id"], exc_info=True)
 
     def game_lock(self, match_id):
         return self.locks.setdefault(match_id, asyncio.Lock())
@@ -140,7 +157,9 @@ class Blitz:
             for player in self.data.players(match_id):
                 self.data.update_player(match_id, player["user_id"],
                                         accepted_revision=updated["revision"] if player["user_id"] == actor else 0)
-            return self.data.match(guild, match_id)
+            match = self.data.match(guild, match_id)
+            await self.notify_lobby(match)
+            return match
 
     async def select_problem(self, match):
         options = match["options"]
@@ -169,8 +188,9 @@ class Blitz:
                     and isinstance(p.get("rating"), int) and low <= p["rating"] <= high]
         pool = [p for p in pool if problem_key(p) not in excluded
                 and "*special" not in p.get("tags", []) and p.get("type", "PROGRAMMING") == "PROGRAMMING"]
-        if options["tag"]:
-            pool = [p for p in pool if options["tag"] in p.get("tags", [])]
+        topics = set(options.get("tags", [])) | ({options["tag"]} if options["tag"] else set())
+        if topics:
+            pool = [p for p in pool if topics.intersection(p.get("tags", []))]
         if options["random_topic"]:
             topics = sorted({tag for p in pool for tag in p.get("tags", []) if not tag.startswith("*")})
             if topics:
@@ -195,9 +215,13 @@ class Blitz:
                 raise UserError("This invitation expired.")
             self.data.update_player(match_id, actor, accepted_revision=revision)
             if not all(p["accepted_revision"] == revision for p in self.data.players(match_id)):
-                return self.data.match(guild, match_id)
+                match = self.data.match(guild, match_id)
+                await self.notify_lobby(match)
+                return match
             self.data.update_match(match_id, state="starting")
+        self.startups[match_id] = asyncio.current_task()
         try:
+            await self.notify_lobby(self.data.match(guild, match_id))
             # API history scans must never hold up another match's deadline cleanup.
             await self.platform.preflight(match)
             problem = await self.select_problem(match)
@@ -208,19 +232,36 @@ class Blitz:
                 self.data.update_match(match_id, problem=problem)
                 match = self.data.match(guild, match_id)
                 await self.platform.create_rooms(match)
+                self.data.update_match(match_id, state="countdown")
+            await self.notify_lobby(self.data.match(guild, match_id))
+            await self.platform.countdown(self.data.match(guild, match_id))
+            async with self.game_lock(match_id):
                 match = self.data.match(guild, match_id)
+                if match["state"] != "countdown":
+                    return match
                 for player in self.data.players(match_id):
                     await self.platform.enter(match, player)
-                starts = int(time.time()) + 5
+                starts = int(time.time())
                 self.data.update_match(match_id, starts_at=starts,
                                        ends_at=starts + match["options"]["minutes"] * 60
                                        if match["options"]["minutes"] is not None else None)
                 await self.platform.announce_start(self.data.match(guild, match_id))
                 self.data.update_match(match_id, state="active")
+                await self.notify_lobby(self.data.match(guild, match_id))
+        except asyncio.CancelledError:
+            async with self.game_lock(match_id):
+                match = self.data.match(guild, match_id)
+                if match["state"] not in TERMINAL:
+                    await self._finish(match, "cancelled", "Match startup interrupted.")
+            raise
         except Exception:
             async with self.game_lock(match_id):
-                await self._finish(self.data.match(guild, match_id), "cancelled", "Could not start the match.")
+                match = self.data.match(guild, match_id)
+                if match["state"] not in TERMINAL:
+                    await self._finish(match, "cancelled", "Could not start the match.")
             raise
+        finally:
+            self.startups.pop(match_id, None)
         return self.data.match(guild, match_id)
 
     async def cancel(self, guild, match_id, actor, *, organizer=False):
@@ -273,13 +314,14 @@ class Blitz:
                                closed_at=int(time.time()))
         match = self.data.match(match["guild_id"], match["id"])
         await self._cleanup(match)
+        await self.notify_lobby(self.data.match(match["guild_id"], match["id"]))
 
     async def recover(self, guild):
         # A match interrupted during setup is cancelled; active matches retain their deadline.
         for snapshot in self.data.matches(guild):
             async with self.game_lock(snapshot["id"]):
                 match = self.data.match(guild, snapshot["id"])
-                if match["state"] == "starting":
+                if match["state"] in {"starting", "countdown"}:
                     await self._finish(match, "cancelled", "Interrupted during match setup; recovered after restart.")
                 elif match["state"] == "active":
                     if match["ends_at"] is not None and int(time.time()) >= match["ends_at"]:
@@ -429,7 +471,7 @@ class Blitz:
             log.exception("Blitz solve check failed for %s", match_id)
 
     async def close(self, guild=None):
-        jobs = [*self.clocks.values(), *self.polls.values()]
+        jobs = [*self.clocks.values(), *self.polls.values(), *self.startups.values()]
         for task in jobs:
             task.cancel()
         await asyncio.gather(*jobs, return_exceptions=True)

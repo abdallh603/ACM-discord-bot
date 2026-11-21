@@ -119,17 +119,23 @@ def blitz_embed(bot, match):
     filters = (f"Manual: {safe(options['manual'])}" if options["manual"] else
                f"Rating: {options['rating_min'] or options['rating_max'] or 'automatic'}–"
                f"{options['rating_max'] or options['rating_min'] or 'automatic'} · "
-               f"Topic: {safe(options['tag'] or ('random topic' if options['random_topic'] else 'any'))}")
+               f"Topics (any match): {safe(', '.join(options.get('tags', [])) or options['tag'] or ('random topic' if options['random_topic'] else 'any'))}")
     details = (
         f"Game **`{match['id']}`** · **{match['state']}** · settings revision **{revision}**\n"
         f"{duration_label(options['minutes'])} · {options['end_rule']}\n{filters}\n"
         f"Voice: **{VOICE_LABELS[selected_voice_mode(options)]}** · move to selected voice: **{options['move_voice']}**\n\n"
+        f"Standings: **{'ON' if options.get('show_standings', True) else 'OFF'}**\n"
         f"Host: <@{match['creator_id']}> · Manager: <@{options.get('manager_id') or match['creator_id']}>\n"
         f"**Players ({accepted}/{len(players)} accepted)**\n{roster}\n\n"
     )
     if match["state"] == "pending":
-        details += (f"Every invited player accepts with `/blitz accept match_id:{match['id']} revision:{revision}`.\n"
+        details += ("Click **Accept & ready** below. Everyone must accept before the countdown starts.\n"
+                    f"Command alternative: `/blitz accept match_id:{match['id']} revision:{revision}`.\n"
                     f"Invite expires <t:{match['invite_expires']}:R>. Editing resets the other players' acceptance.")
+    elif match["state"] == "starting":
+        details += "Everyone is ready! Checking permissions and choosing a fair problem…"
+    elif match["state"] == "countdown":
+        details += "**Get ready!** A 10-second countdown is running in the game text channel. The problem is hidden until GO."
     elif match["starts_at"]:
         deadline = f"deadline <t:{match['ends_at']}:T>" if match["ends_at"] is not None else "unlimited time"
         details += f"Starts <t:{match['starts_at']}:T> · {deadline}.\n"
@@ -170,7 +176,7 @@ class BlitzCommands(app_commands.Group):
             else:
                 managed = [m for m in self.bot.activities.matches(interaction.guild_id)
                            if interaction.user.id in self.bot.blitz.managers(m)
-                           and m["state"] in {"pending", "starting", "active", "settling"}]
+                           and m["state"] in {"pending", "starting", "countdown", "active", "settling"}]
                 if len(managed) != 1:
                     raise UserError("Pass a match_id from /blitz games to select the game.")
                 match_id = managed[0]["id"]
@@ -187,7 +193,7 @@ class BlitzCommands(app_commands.Group):
                 raise UserError("Players and managers must be human server members.")
 
     @app_commands.command(description="Choose a topic, rating, and voice mode from dropdown menus")
-    @app_commands.describe(players="Optional: mention 1–7 opponents; omit for an organizer solo test")
+    @app_commands.describe(players="Optional: mention opponents, or leave blank to use the player picker")
     async def menu(
         self, interaction: discord.Interaction, players: str | None = None,
         minutes: app_commands.Range[int, 1, 180] | None = None,
@@ -204,20 +210,19 @@ class BlitzCommands(app_commands.Group):
             await self.resolve_members(interaction.guild, opponents)
             for user in opponents:
                 self.bot.community.require_member(interaction.guild_id, user)
-        elif hosted:
-            raise UserError("Mention 2–8 players for a hosted game.")
-        elif not interaction.permissions.manage_guild:
-            raise UserError("Mention opponents, or use Manage Server permission for a solo test.")
         if not hosted:
             self.bot.community.require_member(interaction.guild_id, interaction.user.id)
         if manager:
             await self.resolve_members(interaction.guild, [manager.id])
-        from .blitz_menu import BlitzMenu
+        from .blitz_menu import BlitzMenu, BlitzPlayers
         options = {"minutes": minutes, "manual": manual_problem, "end_rule": end_rule,
                    "move_voice": move_voice, "text_channel_id": interaction.channel_id,
                    "voice_channel_id": voice_channel.id if voice_channel else None,
                    "hosted": hosted, "manager_id": manager.id if manager else interaction.user.id}
-        view = BlitzMenu(self.bot, interaction.user.id, interaction.guild_id, opponents, options)
+        if players:
+            view = BlitzMenu(self.bot, interaction.user.id, interaction.guild_id, opponents, options)
+        else:
+            view = BlitzPlayers(self.bot, interaction.user.id, interaction.guild_id, options)
         view.message = await interaction.followup.send(embed=view.summary(), view=view, ephemeral=True, wait=True)
 
     @app_commands.command(description="Organizer: test blitz alone with real rooms, voice controls, and solves")
@@ -260,6 +265,7 @@ class BlitzCommands(app_commands.Group):
         voice_channel: discord.VoiceChannel | None = None,
         voice_mode: Literal["none", "mute", "deafen", "both"] | None = None,
         manager: discord.Member | None = None,
+        show_standings: bool = True,
     ):
         await interaction.response.defer(thinking=True)
         opponents = parse_mentions(players, exclude=interaction.user.id)
@@ -270,13 +276,11 @@ class BlitzCommands(app_commands.Group):
             text_channel_id=interaction.channel_id, voice_channel_id=voice_channel.id if voice_channel else None,
             voice_mode=voice_mode,
             manager_id=manager.id if manager else None,
+            show_standings=show_standings,
         )
         match = await self.bot.blitz.challenge(interaction.guild_id, interaction.user.id, opponents, options)
-        await interaction.followup.send(
-            content="Invited: " + " ".join(f"<@{user}>" for user in opponents),
-            embed=blitz_embed(self.bot, match),
-            allowed_mentions=discord.AllowedMentions(users=[discord.Object(id=user) for user in opponents]),
-        )
+        from .blitz_views import send_invite
+        await send_invite(self.bot, match, interaction.followup.send, opponents, followup=True)
 
     @app_commands.command(description="Host a game for 2–8 mentioned players without joining; optionally assign a manager")
     @app_commands.autocomplete(topic=topic_choices, rating=rating_choices, rating_min=rating_choices, rating_max=rating_choices)
@@ -292,6 +296,7 @@ class BlitzCommands(app_commands.Group):
         end_rule: Literal["first_solve", "all_solve"] = "first_solve",
         voice_mode: Literal["none", "mute", "deafen", "both"] = "mute",
         move_voice: bool = True, voice_channel: discord.VoiceChannel | None = None,
+        show_standings: bool = True,
     ):
         await interaction.response.defer(thinking=True)
         roster = parse_mentions(players, 2, 8)
@@ -301,14 +306,12 @@ class BlitzCommands(app_commands.Group):
             manual=manual_problem, end_rule=end_rule, voice_mode=voice_mode, move_voice=move_voice,
             text_channel_id=interaction.channel_id, voice_channel_id=voice_channel.id if voice_channel else None,
             manager_id=manager.id if manager else None,
+            show_standings=show_standings,
         )
         match = await self.bot.blitz.host(interaction.guild_id, interaction.user.id, roster, options)
         invited = set(roster) | ({manager.id} if manager else set())
-        await interaction.followup.send(
-            content="Invited: " + " ".join(f"<@{user}>" for user in sorted(invited)),
-            embed=blitz_embed(self.bot, match),
-            allowed_mentions=discord.AllowedMentions(users=[discord.Object(id=user) for user in invited]),
-        )
+        from .blitz_views import send_invite
+        await send_invite(self.bot, match, interaction.followup.send, invited, followup=True)
 
     @app_commands.command(description="Accept the current settings; the game starts when everyone accepts")
     async def accept(self, interaction: discord.Interaction, match_id: str,
@@ -331,17 +334,21 @@ class BlitzCommands(app_commands.Group):
         clear_filters: bool = False, clear_problem: bool = False,
         unlimited: bool = False,
         voice_mode: Literal["none", "mute", "deafen", "both"] | None = None,
+        show_standings: bool | None = None,
     ):
         await interaction.response.defer(ephemeral=True, thinking=True)
         options = {}
         if clear_filters:
-            options.update(rating_min=None, rating_max=None, tag=None, random_topic=False)
+            options.update(rating_min=None, rating_max=None, tag=None, tags=[], random_topic=False)
+        if topic is not None or random_topic is not None:
+            options.update(tags=[], tag=topic)
         if clear_problem:
             options["manual"] = None
         options.update(option_changes(
             rating, rating_min, rating_max, minutes=minutes, tag=topic, random_topic=random_topic,
             manual=manual_problem, end_rule=end_rule, mute_voice=mute_voice, move_voice=move_voice,
             voice_mode=voice_mode,
+            show_standings=show_standings,
         ))
         if unlimited:
             if minutes is not None:
@@ -360,7 +367,7 @@ class BlitzCommands(app_commands.Group):
     @app_commands.command(description="List simultaneous pending and running blitz games in this server")
     async def games(self, interaction: discord.Interaction, page: app_commands.Range[int, 1, 1000] = 1):
         matches = [m for m in self.bot.activities.matches(interaction.guild_id)
-                   if m["state"] in {"pending", "starting", "active", "settling"}]
+                   if m["state"] in {"pending", "starting", "countdown", "active", "settling"}]
         rows = matches[(page - 1) * 15:page * 15]
         lines = [f"`{m['id']}` · **{m['state']}** · {'solo test' if m['options'].get('solo') else str(len(self.bot.activities.players(m['id']))) + ' players'} · "
                  f"{duration_label(m['options']['minutes'])}" for m in rows]
@@ -374,6 +381,14 @@ class BlitzCommands(app_commands.Group):
         match = self.owned_match(interaction, match_id)
         self.bot.blitz.request_check(interaction.guild_id, match["id"])
         await interaction.response.send_message("Solve check queued. Results appear in the game's text channel.", ephemeral=True)
+
+    @app_commands.command(description="Show verified solve times and ranks for your game")
+    async def standings(self, interaction: discord.Interaction, match_id: str | None = None):
+        from .blitz_views import standings_embed
+        match = self.owned_match(interaction, match_id)
+        if not match["options"].get("show_standings", True):
+            raise UserError("Standings are disabled for this game.")
+        await interaction.response.send_message(embed=standings_embed(self.bot.activities, match), ephemeral=True)
 
     @app_commands.command(description="Cancel your game, decline an invite, or retry voice recovery")
     async def cancel(self, interaction: discord.Interaction, match_id: str | None = None):

@@ -15,7 +15,9 @@ daily challenges, training tracks, upsolving goals, and multiplayer Blitz.
 - Beginner tracks, post-contest goals, and optional Codeforces rating roles.
 - Blitz for 2–8 players, concurrent games, unlimited or timed rounds, and solo testing.
 - Hosted Blitz: mention the players and optionally delegate a manager who does not have to play.
-- Topic/rating/voice menus, manual problems, and mute/deafen/both/off options.
+- Player picker, multi-topic/rating/voice menus, manual problems, and mute/deafen/both/off options.
+- Accept/decline buttons, visible 10-second countdowns, and persistent game controls.
+- Toggle everyone-finishes mode and live/final standings with tied ranks and solve times.
 - Reuse existing text/voice channels; restore only voice flags the bot applied.
 - SQLite persistence and recovery, Docker, and a credential-free automated test suite.
 

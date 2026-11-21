@@ -1,7 +1,7 @@
 import importlib.util
 import unittest
 from types import SimpleNamespace
-from unittest.mock import AsyncMock, MagicMock
+from unittest.mock import AsyncMock, MagicMock, patch
 
 from just_bot.activities_store import Activities
 from just_bot.blitz import validate_options
@@ -40,6 +40,52 @@ class VoiceAdapterTests(unittest.IsolatedAsyncioTestCase):
         self.data.update_match(self.match["id"], state="cancelled", closed_at=9999999999,
                                outcome="Test cancellation")
         return self.data.match(10, self.match["id"])
+
+    def game_room(self):
+        message = SimpleNamespace(id=801, edit=AsyncMock())
+        room = SimpleNamespace(id=123, send=AsyncMock(return_value=message),
+                               get_partial_message=MagicMock(return_value=message))
+        self.guild.get_channel = lambda channel: room if channel == 123 else None
+        self.data.update_match(self.match["id"], state="countdown", text_id=123)
+        return room, message
+
+    async def test_countdown_is_visible_and_problem_is_never_in_countdown_messages(self):
+        room, message = self.game_room()
+        with patch("just_bot.blitz_discord.asyncio.sleep", new_callable=AsyncMock) as sleep:
+            await self.adapter.countdown(self.data.match(10, self.match["id"]))
+        self.assertEqual([call.args[0] for call in sleep.await_args_list], [5, 2, 1, 1, 1])
+        notices = [room.send.call_args.kwargs["embed"], *[c.kwargs["embed"] for c in message.edit.await_args_list]]
+        self.assertEqual([e.title.split("in ")[1] for e in notices], ["10…", "5…", "3…", "2…", "1…"])
+        self.assertTrue(all(not e.url for e in notices))
+        self.assertTrue(all("codeforces.com" not in e.description for e in notices))
+        self.assertEqual(self.data.match(10, self.match["id"])["options"]["game_message_id"], 801)
+        self.assertTrue(all(not m.edit.called for m in self.members.values()))
+
+    async def test_cancel_during_real_countdown_stops_updates_and_reveal(self):
+        room, message = self.game_room()
+        async def cancel(seconds):
+            self.data.update_match(self.match["id"], state="cancelled")
+        with patch("just_bot.blitz_discord.asyncio.sleep", side_effect=cancel) as sleep:
+            await self.adapter.countdown(self.data.match(10, self.match["id"]))
+        sleep.assert_awaited_once_with(5)
+        self.assertEqual(message.edit.call_args.kwargs["embed"].title, "Blitz stopped")
+
+    async def test_standings_toggle_and_updates_reuse_one_message(self):
+        room, message = self.game_room()
+        self.data.update_match(self.match["id"], state="active", starts_at=1000,
+                               options={**self.match["options"], "show_standings": False, "game_channel_id": 123})
+        await self.adapter.update_standings(self.data.match(10, self.match["id"]))
+        room.send.assert_not_awaited()
+        match = self.data.match(10, self.match["id"])
+        self.data.update_match(match["id"], options={**match["options"], "show_standings": True})
+        await self.adapter.update_standings(self.data.match(10, match["id"]))
+        await self.adapter.update_standings(self.data.match(10, match["id"]))
+        room.send.assert_awaited_once()
+        message.edit.assert_not_awaited()
+        self.data.update_player(match["id"], 2, solved_at=1060)
+        await self.adapter.update_standings(self.data.match(10, match["id"]))
+        message.edit.assert_awaited_once()
+        self.assertIn("**1:00**", message.edit.call_args.kwargs["embed"].description)
 
     async def test_real_adapter_restores_only_its_own_mute(self):
         await self.adapter.enter(self.match, self.data.players(self.match["id"])[0])

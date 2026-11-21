@@ -115,6 +115,8 @@ class RoundForgeBot(discord.Client):
         install_activity_commands(self)
 
     async def setup_hook(self):
+        from .blitz_views import restore_panels
+        restore_panels(self)
         if self.settings.guild_id:
             guild = discord.Object(id=self.settings.guild_id)
             self.tree.copy_global_to(guild=guild)

@@ -99,7 +99,7 @@ class Activities:
     def matches(self, guild):
         return [self.match(guild, r[0]) for r in self.db.execute(
             "SELECT id FROM blitz_matches WHERE guild_id=? AND "
-            "(state IN ('pending','starting','active','settling') OR announced=0 OR voice_id IS NOT NULL "
+            "(state IN ('pending','starting','countdown','active','settling') OR announced=0 OR voice_id IS NOT NULL "
             "OR text_id IS NOT NULL OR id IN (SELECT match_id FROM blitz_players WHERE owns_mute=1 OR owns_deaf=1))",
             (guild,),
         )]
@@ -112,11 +112,11 @@ class Activities:
     def in_channel(self, guild, channel):
         rows = self.db.execute(
             "SELECT id FROM blitz_matches WHERE guild_id=? AND "
-            "(text_id=? OR state IN ('pending','starting'))", (guild, channel)
+            "(text_id=? OR state IN ('pending','starting','countdown'))", (guild, channel)
         ).fetchall()
         matches = [self.match(guild, row[0]) for row in rows]
         return [m for m in matches if m["text_id"] == channel
-                or (m["state"] in {"pending", "starting"} and m["options"].get("text_channel_id") == channel)]
+                or (m["state"] in {"pending", "starting", "countdown"} and m["options"].get("text_channel_id") == channel)]
 
     def update_match(self, match_id, **changes):
         allowed = {"state", "options", "problem", "starts_at", "ends_at", "winner_id", "outcome",

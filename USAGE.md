@@ -74,11 +74,22 @@ contest page; the bot does not generate or scrape editorials.
 ## 5. Play Blitz yourself
 
 ```text
-/blitz menu players:@Alice @Bob
+/blitz menu
 ```
 
-You, Alice, and Bob are the players. Select a topic, rating, and voice mode from the dropdowns,
-then choose **Create lobby**. Use More Topics/More Ratings to see the next page.
+Pick 1–7 opponents from the player dropdown; you are included automatically. You can also pass
+`players:@Alice @Bob` to skip the picker. Select topics, rating, and voice mode, then choose
+**Create lobby**. Use **More topics**/**More ratings** to see the next page.
+
+The topic dropdown supports multiple selections, including across pages. A problem must match
+**at least one** selected topic. Select **Any topic** or **Random topic** on its own to reset the
+selection. The preview always shows all chosen topics. Manual problems disable these filters.
+
+Use **Set time limit** for 1–180 minutes; leave the field blank for unlimited time.
+**Everyone finishes: ON** keeps the game running until all players solve or time runs out.
+Each solver is released from the bot's voice effects immediately. **OFF** ends the game on the
+first verified winning solve. **Standings: ON/OFF** controls the live and final standings message
+and standings button. Choose these settings before creating the lobby.
 
 Direct-command equivalent:
 
@@ -86,14 +97,22 @@ Direct-command equivalent:
 /blitz create players:@Alice @Bob rating:1200 topic:dp voice_mode:both
 ```
 
-The bot returns a game ID. Every other player accepts the displayed settings revision:
+The public invitation has **Accept & ready**, **Decline**, and **Status** buttons. Read the settings
+and click **Accept & ready**; the readiness count updates for everyone. The creator of a normal
+game is already ready; all players in a hosted game must accept. Managers cannot accept for players.
+The command alternative still works:
 
 ```text
 /blitz accept match_id:GAME_ID revision:1
 ```
 
-Nothing is moved, muted, or deafened until everyone has accepted. Invites expire after ten minutes.
-There is a five-second countdown before eligible practice submissions start counting.
+Invites expire after ten minutes. After everyone accepts, the bot selects an eligible problem,
+reuses suitable existing rooms, and posts a visible **10 → 5 → 3 → 2 → 1 → GO** countdown.
+The problem stays hidden and voice effects are deferred until the countdown completes.
+Use **Cancel blitz** during the countdown to stop. At GO, the same message reveals the problem
+and offers **Check solves**, **Standings** (when enabled), **Cancel blitz**, and **Status** buttons.
+Pending invitation and active game buttons survive bot restarts. Interrupted countdowns are
+cancelled safely rather than revealing a problem without warning.
 
 ## 6. Manage a game for other people
 
@@ -135,6 +154,7 @@ not mention yourself; in a hosted game list exactly the 2–8 people who will pl
 | `manual_problem` | ID such as `4A`, `1700/C`, or a public CF problem URL |
 | `end_rule:first_solve` | Earliest accepted solve wins; release all players' voices |
 | `end_rule:all_solve` | Release each solver; others keep playing until all solve or time expires |
+| `show_standings:true/false` | Enable/disable standings when creating or editing an invitation |
 | `voice_mode` | `none`, `mute`, `deafen`, or `both` |
 | `voice_channel` | Optional existing voice channel to use |
 | `move_voice` | Bring already-connected players into the selected room; default true |
@@ -196,7 +216,7 @@ solve condition, cancellation, or clean shutdown. This is friendly practice, not
 
 ## 9. Test with one account
 
-An organizer with Manage Server can use `/blitz menu` without players, or:
+An organizer with Manage Server can test alone with:
 
 ```text
 /blitz solo minutes:1 rating:800 voice_mode:both

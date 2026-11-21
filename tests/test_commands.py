@@ -30,7 +30,7 @@ class CommandTests(unittest.IsolatedAsyncioTestCase):
             "training start", "training status", "training next", "training stop",
             "upsolve start", "upsolve check", "upsolve stop",
             "blitz create", "blitz accept", "blitz edit", "blitz status", "blitz games",
-            "blitz check", "blitz cancel", "blitz time", "blitz recover", "blitz solo", "blitz menu", "blitz host",
+            "blitz check", "blitz cancel", "blitz time", "blitz recover", "blitz solo", "blitz menu", "blitz host", "blitz standings",
         })
         for command in self.bot.tree.get_commands():
             payload = command.to_dict(self.bot.tree)

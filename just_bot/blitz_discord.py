@@ -1,12 +1,15 @@
 from __future__ import annotations
 
+import asyncio
 import logging
 import time
 
 import discord
 
 from .blitz import TERMINAL
+from .blitz_options import VOICE_LABELS, voice_mode
 from .blitz_rooms import choose_voice_room, owns_room
+from .blitz_views import BlitzPanel, standings_embed
 from .domain import UserError
 from .presentation import embed, problem_embed
 
@@ -151,6 +154,47 @@ class DiscordBlitz:
             # Write ownership before the API call so partial changes survive a crash.
             await member.edit(**changes, reason=f"Blitz {match['id']}; restore voice on solve/end/cancel")
 
+    async def update_lobby(self, match):
+        from .activity_commands import blitz_embed
+        options = match["options"]
+        room = self.guild(match).get_channel(options.get("lobby_channel_id"))
+        if room and options.get("lobby_message_id"):
+            await room.get_partial_message(options["lobby_message_id"]).edit(
+                embed=blitz_embed(self.bot, match),
+                view=BlitzPanel(self.bot, match) if match["state"] == "pending" else None,
+                allowed_mentions=discord.AllowedMentions.none(),
+            )
+
+    def save_options(self, match, **changes):
+        current = self.data.match(match["guild_id"], match["id"])
+        self.data.update_match(match["id"], options={**current["options"], **changes})
+
+    async def countdown(self, match):
+        room = self.guild(match).get_channel(match["text_id"])
+        if not room:
+            raise UserError("The blitz text channel disappeared during setup.")
+        players = [p["user_id"] for p in self.data.players(match["id"])]
+        mode = VOICE_LABELS[voice_mode(match["options"])]
+        def notice(seconds):
+            return embed(f"Blitz {match['id']} · starting in {seconds}…",
+                         f"Get ready! The problem appears after the countdown.\n"
+                         f"Voice mode: **{mode}**; applied after the countdown.\n"
+                         "Use **Cancel blitz** below to stop before the reveal.")
+        message = await room.send(
+            content=" ".join(f"<@{user}>" for user in players), embed=notice(10),
+            view=BlitzPanel(self.bot, match, countdown=True),
+            allowed_mentions=discord.AllowedMentions(users=[discord.Object(id=user) for user in players]),
+        )
+        self.save_options(match, game_message_id=message.id, game_channel_id=room.id)
+        # Check durable state after every wait, so cancellation never reveals a problem.
+        for current, following in zip((10, 5, 3, 2, 1), (5, 3, 2, 1, 0)):
+            await asyncio.sleep(current - following)
+            if self.data.match(match["guild_id"], match["id"])["state"] != "countdown":
+                await message.edit(content=None, embed=embed("Blitz stopped", "The game was cancelled before starting."), view=None)
+                return
+            if following:
+                await message.edit(embed=notice(following), allowed_mentions=discord.AllowedMentions.none())
+
     async def announce_start(self, match):
         room = self.guild(match).get_channel(match["text_id"])
         if not room:
@@ -159,14 +203,45 @@ class DiscordBlitz:
         ending = f"Ends <t:{match['ends_at']}:T>" if match["ends_at"] is not None else "Unlimited time"
         result.description = (
             f"**{'Solo blitz test' if match['options'].get('solo') else 'Blitz'} `{match['id']}`**\n"
-            f"Starts <t:{match['starts_at']}:T> · {ending}\n"
+            f"**GO!** Started <t:{match['starts_at']}:T> · {ending}\n"
             f"Rule: **{match['options']['end_rule']}**. Solve in individual Codeforces practice.\n"
             f"Voice room: <#{match['voice_id']}>\n"
             "Results are checked automatically. Use `/blitz check` to request another check, "
             "or `/blitz cancel` to stop and release voices.\n"
             "The bot restores only server mute/deafen changes it applied. Your own voice settings stay yours."
         )
-        await room.send(embed=result)
+        message_id = match["options"].get("game_message_id")
+        if message_id:
+            await room.get_partial_message(message_id).edit(
+                content=None, embed=result, view=BlitzPanel(self.bot, match, game=True),
+                allowed_mentions=discord.AllowedMentions.none(),
+            )
+        else:
+            message = await room.send(embed=result, view=BlitzPanel(self.bot, match, game=True))
+            self.save_options(match, game_message_id=message.id, game_channel_id=room.id)
+
+    async def update_standings(self, match):
+        if not match["starts_at"] or not match["options"].get("show_standings", True):
+            return
+        players = self.data.players(match["id"])
+        signature = str([(p["user_id"], p["solved_at"]) for p in players]) + match["state"]
+        options = self.data.match(match["guild_id"], match["id"])["options"]
+        if signature == options.get("standings_signature"):
+            return
+        room = self.guild(match).get_channel(options.get("game_channel_id") or match["text_id"])
+        if not room:
+            return
+        result = standings_embed(self.data, match)
+        if options.get("standings_message_id"):
+            try:
+                await room.get_partial_message(options["standings_message_id"]).edit(embed=result)
+            except discord.NotFound:
+                message = await room.send(embed=result)
+                self.save_options(match, standings_message_id=message.id)
+        else:
+            message = await room.send(embed=result)
+            self.save_options(match, standings_message_id=message.id)
+        self.save_options(match, standings_signature=signature)
 
     async def cleanup(self, match):
         guild = self.guild(match)
@@ -202,7 +277,21 @@ class DiscordBlitz:
             except discord.HTTPException:
                 log.warning("Blitz %s: voice recovery pending for %s", match["id"], player["user_id"])
         players = self.data.players(match["id"])
+        # Cosmetic updates cannot prevent voice restoration or result cleanup.
+        try:
+            await self.update_standings(match)
+        except discord.HTTPException:
+            log.warning("Blitz %s: standings update deferred", match["id"])
         if terminal and not match["announced"]:
+            panel_room = guild.get_channel(match["options"].get("game_channel_id"))
+            if panel_room and match["options"].get("game_message_id"):
+                try:
+                    changes = {"view": None}
+                    if not match["starts_at"]:
+                        changes.update(content=None, embed=embed("Blitz stopped", match["outcome"] or "Game cancelled."))
+                    await panel_room.get_partial_message(match["options"]["game_message_id"]).edit(**changes)
+                except discord.HTTPException:
+                    pass
             room = guild.get_channel(match["text_id"]) if match["text_id"] else None
             if room:
                 winner = f"<@{match['winner_id']}>" if match["winner_id"] else "No winner"

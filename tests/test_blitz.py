@@ -41,6 +41,9 @@ class FakeVoice:
     async def announce_start(self, match):
         pass
 
+    async def countdown(self, match):
+        pass
+
     async def cleanup(self, match):
         release_all = match["state"] in TERMINAL or match["state"] == "settling"
         for player in self.data.players(match["id"]):
@@ -119,6 +122,83 @@ class BlitzTests(unittest.IsolatedAsyncioTestCase):
             await self.blitz.challenge(10, 1, [], {})
         with self.assertRaises(UserError):
             self.data.create_match(10, 1, validate_options({}), [(1, "player1")])
+
+    async def test_countdown_hides_problem_and_defers_voice_and_timer(self):
+        entered, release = asyncio.Event(), asyncio.Event()
+        async def countdown(match):
+            self.assertEqual(match["state"], "countdown")
+            self.assertIsNone(match["starts_at"])
+            self.assertFalse(self.voice.muted)
+            self.voice.announce_start.assert_not_awaited()
+            entered.set()
+            await release.wait()
+        self.voice.countdown = countdown
+        self.voice.announce_start = AsyncMock()
+        match = await self.blitz.challenge(10, 1, [2], {"minutes": 2})
+        task = asyncio.create_task(self.blitz.accept(10, match["id"], 2))
+        await asyncio.wait_for(entered.wait(), 1)
+        release.set()
+        with patch("just_bot.blitz.time.time", return_value=5000):
+            result = await task
+        self.assertEqual((result["starts_at"], result["ends_at"]), (5000, 5120))
+        self.voice.announce_start.assert_awaited_once()
+        self.assertEqual(self.voice.muted, {1, 2})
+
+    async def test_cancelling_countdown_never_reveals_or_mutes_and_does_not_block_other_game(self):
+        entered, release = asyncio.Event(), asyncio.Event()
+        async def countdown(match):
+            if match["creator_id"] == 1:
+                entered.set()
+                await release.wait()
+        self.voice.countdown = countdown
+        self.voice.announce_start = AsyncMock()
+        match = await self.blitz.challenge(10, 1, [2], {})
+        task = asyncio.create_task(self.blitz.accept(10, match["id"], 2))
+        await asyncio.wait_for(entered.wait(), 1)
+        other = await self.game((4, 5))
+        await asyncio.wait_for(self.blitz.cancel(10, match["id"], 2), 1)
+        release.set()
+        result = await task
+        self.assertEqual(result["state"], "cancelled")
+        self.assertEqual(self.voice.muted, {4, 5})
+        self.assertEqual(self.voice.announce_start.await_args.args[0]["id"], other["id"])
+        self.assertEqual(self.voice.announce_start.await_count, 1)
+
+    async def test_shutdown_cancels_waiting_startup_and_frees_its_slots(self):
+        entered = asyncio.Event()
+        async def countdown(match):
+            entered.set()
+            await asyncio.Event().wait()
+        self.voice.countdown = countdown
+        match = await self.blitz.challenge(10, 1, [2], {})
+        task = asyncio.create_task(self.blitz.accept(10, match["id"], 2))
+        await asyncio.wait_for(entered.wait(), 1)
+        await asyncio.wait_for(self.blitz.close(), 1)
+        self.assertTrue(task.cancelled())
+        self.assertEqual(self.data.match(10, match["id"])["state"], "cancelled")
+        self.assertIsNone(self.data.slot(10, 1))
+        self.assertFalse(self.voice.muted)
+
+    async def test_restart_cancels_interrupted_countdown(self):
+        match = await self.blitz.challenge(10, 1, [2], {})
+        self.data.update_match(match["id"], state="countdown")
+        await self.blitz.recover(10)
+        self.assertEqual(self.data.match(10, match["id"])["state"], "cancelled")
+        self.assertIsNone(self.data.slot(10, 2))
+
+    async def test_multiple_topics_match_any_selected_topic_and_still_exclude_solves(self):
+        match = await self.blitz.challenge(10, 1, [2], {"tags": ["dp", "graphs"]})
+        dp, graphs, math = problem(), problem(), problem()
+        dp.update(index="A", tags=["dp"])
+        graphs.update(index="B", tags=["graphs"])
+        math.update(index="C", tags=["math"])
+        self.cf.problems.return_value = [dp, graphs, math]
+        self.cf.submissions.return_value = [submission(1)]  # problem 100A already solved
+        self.assertEqual((await self.blitz.select_problem(match))["index"], "B")
+        with self.assertRaises(UserError):
+            validate_options({"tags": ["dp"], "random_topic": True})
+        with self.assertRaises(UserError):
+            validate_options({"tags": ["dp"], "manual": "4A"})
 
     async def test_simultaneous_games_have_separate_players_rooms_and_winners(self):
         first = await self.game()

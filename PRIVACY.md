@@ -4,7 +4,8 @@ Each bot operator hosts their own instance and SQLite database. Server data is k
 server ID. RoundForge sends requests only to Discord and the public Codeforces API for its features;
 it does not use analytics, advertising, or AI services.
 
-Stored data includes Discord server/member/channel/role IDs, linked Codeforces handles and ratings,
+Stored data includes Discord server/member/channel/role IDs and game message IDs (to restore buttons
+and update standings), linked Codeforces handles and ratings,
 verification codes valid for ten minutes, server settings, practice goals, daily claims, game rosters/results,
 and voice recovery ownership. It does not request Codeforces passwords/API keys, read message content,
 record voice audio, or store payment information. The bot's Discord token belongs in local environment

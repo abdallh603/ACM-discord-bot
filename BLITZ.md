@@ -16,11 +16,15 @@ no server-wide permissions and does not authorize accepting for a player.
 
 ## Topic, rating, and voice menus
 
-Run `/blitz menu players:@Alice @Bob` to open a private setup panel. Use the **Topic**,
+Run `/blitz menu` to pick opponents, or `/blitz menu players:@Alice @Bob` to open a private setup panel. Use the **Topic**,
 **Rating**, and **Voice** dropdowns, then click **Create lobby**. The challenger is included
 automatically. Everyone else still accepts the displayed lobby revision before voice effects begin.
 
 The Topic menu includes **Any topic**, **Random topic**, and named Codeforces topics.
+Select multiple named topics to match **any** of them; selections persist across pages.
+Any topic and Random topic must be selected on their own. Use **Set time limit** to enter minutes
+or leave it blank for unlimited time. Toggle **Everyone finishes** to choose `all_solve` vs
+`first_solve`, and **Standings** to enable/disable a live and final ranking message.
 The Rating menu includes **Automatic** and every 100-point step from 800 through 3500.
 Use **More topics** or **More ratings** for the next page; your selection stays in the preview.
 Voice choices are **No voice effects**, **Mute**, **Deafen**, and **Mute and deafen**.
@@ -33,7 +37,7 @@ Omit `minutes` for **unlimited time**, or pass it explicitly for a timed game:
 /blitz menu
 ```
 
-The last example is an organizer solo test and has a **Start solo test** button.
+The last example opens the player picker. Organizers can test alone with `/blitz solo`.
 Only the person who opened a menu can change it. It expires after 10 minutes without
 reserving players or changing voice states. A manual problem disables topic/rating selectors.
 Existing room reuse works the same way as direct commands.
@@ -89,8 +93,12 @@ The lobby response shows its game ID and settings revision. Each invited player 
 ```
 
 Nothing is moved or muted before every player has accepted the current revision. Invites expire
-after 10 minutes. The last acceptance triggers selection, room reuse (or creation if needed), voice setup,
-and a five-second countdown. An invited player may decline with `/blitz cancel`.
+after 10 minutes. Players can use **Accept & ready**/**Decline** on the invitation instead of commands.
+The readiness count updates in place; edits refresh the invitation and invalidate old buttons.
+The last acceptance triggers selection and room reuse (or creation if needed), followed by a visible
+10-second countdown. The problem is revealed and voice effects begin only after the countdown.
+Use **Cancel blitz** during the countdown to stop. Pending/active buttons survive restarts;
+interrupted countdowns are safely cancelled. An invited player can also decline with `/blitz cancel`.
 
 ### Configure problems and rules
 
@@ -106,6 +114,7 @@ and a five-second countdown. An invited player may decline with `/blitz cancel`.
 | `manual_problem` | ID such as `4A`, `1700/C`, or a public CF problem URL |
 | `end_rule:first_solve` | Earliest accepted solve wins; release every player's voice |
 | `end_rule:all_solve` | Release each solver's voice, let others continue until all solve or time expires |
+| `show_standings:true/false` | Live/final standings and standings button; defaults to enabled |
 | `mute_voice` | Server-mute connected players during play; default true |
 | `voice_mode` | `none`, `mute`, `deafen`, or `both`; overrides `mute_voice` when supplied |
 | `move_voice` | Bring connected players into the selected existing voice room; default true |
