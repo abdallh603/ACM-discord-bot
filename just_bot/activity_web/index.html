@@ -1,0 +1,46 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#121a27">
+  <title>RoundForge · Blitz room</title>
+  <link rel="stylesheet" href="/style.css">
+</head>
+<body>
+  <div class="shell">
+    <nav class="rail" aria-label="Activity navigation">
+      <a class="brand" href="/" aria-label="RoundForge home"><svg viewBox="0 0 40 40" aria-hidden="true"><path d="m14 10-10 10 10 10M26 10l10 10-10 10M23 5l-6 30"/></svg></a>
+      <button class="rail-button active" id="bracket-tab" title="Tournament bracket" aria-label="Tournament bracket"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 4h5v5H3zM3 15h5v5H3zM8 6.5h5v11H8M13 12h7M20 8v8"/></svg></button>
+      <button class="rail-button" id="my-match" title="My match" aria-label="Select my match"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m5 4 14 16M19 4 5 20M4 16l4 4M16 20l4-4M3 3l4 1-3 3zM21 3l-4 1 3 3z"/></svg></button>
+      <div class="rail-bottom"><span class="rail-status" title="Connected to the shared room"></span><span class="rail-caption">Live</span></div>
+    </nav>
+    <div class="workspace">
+      <header class="topbar">
+        <div class="room-label"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M11 4 6 8H2v8h4l5 4zM15 8a6 6 0 0 1 0 8M18 4a11 11 0 0 1 0 16"/></svg><span id="room-name">Connecting to your room…</span></div>
+        <div class="top-actions"><span id="preview-badge" class="preview-badge" hidden>Preview · fictional players</span><span id="connection" class="connection">Connecting</span><button class="quiet" id="reconnect" hidden>Reconnect</button></div>
+      </header>
+      <main>
+        <div id="notice" class="notice" role="status" hidden></div>
+        <section class="tournament-heading" aria-label="Tournament overview">
+          <div><div class="heading-context"><span class="forge-word">RoundForge</span><span class="separator">/</span><span>Blitz room</span></div><h1 id="tournament-name">Your tournament, together.</h1><p id="tournament-meta">Connect to Discord to follow the shared bracket.</p></div>
+          <div class="heading-actions"><label class="selector-label" for="tournament-select">Shared tournament</label><select id="tournament-select" aria-label="Shared tournament"><option value="">Waiting for the host</option></select><span id="tournament-state" class="state-tag">Connecting</span></div>
+        </section>
+        <div id="preview-tools" class="preview-tools" hidden><span>Try a view</span><button data-scenario="registration">Registration</button><button data-scenario="running" class="selected">In progress</button><button data-scenario="finished">Finished</button><span class="preview-note">This local preview never changes real games.</span></div>
+        <div class="stage">
+          <section class="bracket-pane" aria-label="Tournament bracket">
+            <div class="pane-heading"><div><h2 id="bracket-title">The bracket</h2><p id="bracket-subtitle">Every match leads somewhere.</p></div><div class="legend"><span><i class="dot won"></i>Advanced</span><span><i class="dot live"></i>Live</span><span><i class="dot waiting"></i>Waiting</span></div></div>
+            <div id="board-scroll" class="board-scroll" tabindex="0" aria-label="Scrollable tournament bracket"><div id="board" class="board"><div class="empty-board"><span class="empty-symbol">⌁</span><h3>Getting the room ready</h3><p>The shared bracket will appear here.</p></div></div></div>
+            <div class="bracket-footer"><span id="bracket-summary">Waiting for the host</span><span>Select a match to see its details</span></div>
+          </section>
+          <aside class="match-desk" aria-label="Selected match"><div id="match-content" class="match-content"><p class="desk-context">Match desk</p><h2>Pick your match.</h2><p class="desk-copy">Select a pairing in the bracket to see its ready check, timer, and problem.</p></div></aside>
+        </div>
+        <footer class="voice-footer"><div class="in-room"><span class="voice-icon">◉</span><span>In the room</span><div id="voice-people" class="voice-people"></div><span id="voice-count" class="muted"></span></div><div class="footer-note">Play fair. Think fast. Forge ahead.</div><span class="room-brand">RoundForge</span></footer>
+      </main>
+    </div>
+  </div>
+  <div id="toast" class="toast" role="status" hidden></div>
+  <dialog id="confirm-dialog"><h2 id="confirm-title">Cancel this tournament?</h2><p>Its Blitz games will stop and the bot will restore the voice changes it owns.</p><div class="dialog-actions"><button class="quiet" id="confirm-no">Keep playing</button><button class="danger" id="confirm-yes">Cancel tournament</button></div></dialog>
+  <script type="module" src="/app.js"></script>
+</body>
+</html>

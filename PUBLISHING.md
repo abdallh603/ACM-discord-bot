@@ -43,6 +43,9 @@ Use your application ID in an install URL, and grant only the features' necessar
 
 - Basic commands: View Channels, Send Messages, Embed Links.
 - Tournament artwork/profile cards: Attach Files.
+- Optional voice Activity: see [ACTIVITY.md](ACTIVITY.md) for SDK/OAuth/HTTPS setup. Publishing
+  the source alone does not host or enable the Activity. Text-channel launch links need Create Invite
+  for the invoking user and bot; voice-channel chat can use the native launch response.
 - Voice games: Connect, Move Members, Mute Members and/or Deafen Members as configured.
 - Optional fallback rooms: Manage Channels.
 - Optional rank roles: Manage Roles, with the bot's role placed above its created CF roles.

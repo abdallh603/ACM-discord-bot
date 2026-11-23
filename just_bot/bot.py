@@ -11,6 +11,8 @@ from discord.ext import tasks
 
 from .activities_store import Activities
 from .activity_commands import install_activity_commands
+from .activity_data import ActivityData
+from .activity_launch import install_activity_launch
 from .blitz import Blitz
 from .blitz_discord import DiscordBlitz
 from .codeforces import Codeforces
@@ -104,6 +106,8 @@ class RoundForgeBot(discord.Client):
         self.profile_cards = ProfileCards()
         self.blitz = Blitz(self.community, self.activities, DiscordBlitz(self))
         self.tournaments = Tournaments(self.community, self.blitz, DiscordTournaments(self))
+        self.activity_data = ActivityData(self)
+        self.activity_runner = None
         self.tree = CommunityTree(
             self, allowed_contexts=app_commands.AppCommandContext(guild=True, dm_channel=False, private_channel=False),
             allowed_installs=app_commands.AppInstallationType(guild=True, user=False),
@@ -119,6 +123,7 @@ class RoundForgeBot(discord.Client):
         install_commands(self)
         install_activity_commands(self)
         self.tree.add_command(TournamentCommands(self))
+        install_activity_launch(self)
 
     async def setup_hook(self):
         from .blitz_views import restore_panels
@@ -138,6 +143,13 @@ class RoundForgeBot(discord.Client):
                 except discord.HTTPException:
                     log.warning("Could not clear legacy development commands; public commands were registered")
         log.info("Registered %s command groups/commands", len(synced))
+        if self.settings.activity_enabled:
+            if str(self.application_id) != self.settings.client_id:
+                raise ValueError("DISCORD_CLIENT_ID must match the bot application's ID.")
+            from .activity_launch import register_entrypoint
+            await register_entrypoint(self)
+            from .activity_server import start_server
+            self.activity_runner = await start_server(self)
         self.feeds.start()
         self.hourly_refresh.start()
         self.blitz_clock.start()
@@ -159,6 +171,9 @@ class RoundForgeBot(discord.Client):
         return self.role_setup_locks.setdefault(guild_id, asyncio.Lock())
 
     async def close(self):
+        if self.activity_runner:
+            runner, self.activity_runner = self.activity_runner, None
+            await runner.cleanup()
         jobs = [self.feeds.get_task(), self.hourly_refresh.get_task(),
                 self.blitz_clock.get_task(), *self.refresh_tasks.values()]
         self.feeds.cancel()

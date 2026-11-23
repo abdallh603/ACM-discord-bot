@@ -16,3 +16,6 @@ services:
         max-file: "3"
 volumes:
   just-data:
+
+# Optional voice activity deployment is described in ACTIVITY.md. Build the SDK before the image.
+# Expose the Activity port only to your HTTPS reverse proxy; the bot's default is loopback-only.

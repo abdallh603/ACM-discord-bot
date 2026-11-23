@@ -38,5 +38,15 @@ Only server organizers can configure server feeds/channel restrictions and rank 
 assigned managers control their own games; they cannot accept for players or manage another server's
 games. Bot owners with database access can inspect their instance's stored records.
 
+The optional voice Activity requests Discord's `identify` OAuth scope and verifies application,
+user, and Activity-instance membership with Discord. OAuth codes/access tokens and random browser
+session credentials are processed in memory, not stored in SQLite, URLs, or localStorage. Sessions
+expire after at most thirty minutes; short authorization/member caches are refreshed before actions.
+The browser only receives tournament records for text channels its verified member can view, and
+unrevealed problems stay server-side until the match starts. The Activity does not capture audio/video.
+Shared selections store instance/server/channel/tournament IDs, selecting user ID, and a timestamp;
+inactive instance rows are pruned after a week, while channel presets remain until replaced or removed.
+The loopback review preview uses fictional data and never loads the bot's `.env` or real database.
+
 Operators should keep backups private, restrict host access, and cancel active games before removing
 the bot or deleting recovery data. Never publish `.env`, tokens, databases, logs, or backups.

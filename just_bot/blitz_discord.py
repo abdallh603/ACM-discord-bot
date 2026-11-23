@@ -185,7 +185,8 @@ class DiscordBlitz:
             view=BlitzPanel(self.bot, match, countdown=True),
             allowed_mentions=discord.AllowedMentions(users=[discord.Object(id=user) for user in players]),
         )
-        self.save_options(match, game_message_id=message.id, game_channel_id=room.id)
+        self.save_options(match, game_message_id=message.id, game_channel_id=room.id,
+                          countdown_ends_at=int(time.time()) + 10)
         # Check durable state after every wait, so cancellation never reveals a problem.
         for current, following in zip((10, 5, 3, 2, 1), (5, 3, 2, 1, 0)):
             await asyncio.sleep(current - following)

@@ -97,6 +97,9 @@ Bracket-image delivery failures remain queued for retry even after the tournamen
 
 ## Your Discord ~ Codeforces profile card
 
+For a shared interactive bracket inside Discord voice, see the optional [voice Activity](ACTIVITY.md).
+It uses the same tournament and Blitz records; it does not create another voice room or another game engine.
+
 ```text
 /handle show
 /handle show member:@Alice

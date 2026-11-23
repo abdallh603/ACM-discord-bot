@@ -149,3 +149,39 @@ and slash command, real avatar placement, status rendering, winner propagation, 
 and identity-cache/failure behavior. The fictional eight-player sample at
 `docs/tournament-bracket-preview.png` was generated and visually inspected. Recreate it with
 `python scripts/preview_tournament.py`. No live Discord session or real avatar download was tested.
+
+## Version 0.7.0 voice Activity review
+
+Added a responsive Discord Activity frontend with an interactive shared bracket and match desk:
+player identity cards, ready checks, countdowns, problem links, timers, room participants, signup,
+and host controls. The frontend uses the official Embedded App SDK for Discord authorization,
+authentication, external links, and participant updates. A build script bundles the SDK and its
+dependency notices locally; no bot token or client secret enters that bundle. A separate loopback-only
+preview serves fictional data and can be reviewed without credentials, a real DB, or the SDK bundle.
+
+The optional aiohttp service runs in the bot's event loop and uses existing tournament/Blitz engines
+for mutations. It verifies OAuth application ownership, user identity, actual Activity instance,
+guild/channel access, and text-channel visibility. Session tokens are random, memory-only, bounded,
+and expire after at most thirty minutes. Actions refresh authorization and cannot choose a client
+user ID or bypass the player's acceptance revision. Snapshots whitelist fields and withhold the
+problem through the countdown. Polling uses conditional ETags and server-based timers.
+
+Selections are scoped by verified Activity instance and persist in additive SQLite tables. Text
+launch creates a short-lived targeted invite only with both actor and bot invite permission;
+voice-chat launch uses the native callback. The bot never creates a voice room for the Activity.
+Ready checks keep movement-enabled games in the shared voice room. Command sync restores the
+Discord-handled entry point, avoiding loss of the App Launcher command. Configuration is optional
+and defaults to disabled/loopback, preserving existing bot operation.
+
+Validation: **203 Python tests, 3 JavaScript model tests**, plus a headless Edge browser flow covering
+desktop/mobile rendering, match selection, ready/countdown/problem reveal, join/leave/start,
+the champion, cancellation confirmation, and no page errors. Desktop and mobile screenshots were
+visually reviewed; the desktop eight-player bracket fits without horizontal clipping and only the
+bracket canvas scrolls horizontally on mobile. Source syntax, dependency consistency, and staged
+release checks were also run. The browser test uses the real preview HTTP service.
+
+Limitations: no real Discord OAuth/instance exchange or native Activity launch was tested. Outbound
+npm access was blocked, so the official SDK dependency was not downloaded/bundled in this environment;
+the production server intentionally refuses to start without that build. `ACTIVITY.md` documents
+the build, local OAuth client-secret setup, HTTPS mapping, and deployment. No public host, Developer
+Portal settings, actual Discord messages, or GitHub publication were changed by this task.

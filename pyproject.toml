@@ -4,10 +4,10 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "roundforge-bot"
-version = "0.6.1"
+version = "0.7.0"
 description = "A public Codeforces community Discord bot with managed multiplayer Blitz"
 requires-python = ">=3.11"
-dependencies = ["discord.py>=2.6,<3", "python-dotenv>=1,<2", "tzdata>=2025.2", "Pillow>=13,<14"]
+dependencies = ["discord.py>=2.6,<3", "python-dotenv>=1,<2", "tzdata>=2025.2", "Pillow>=13,<14", "aiohttp>=3.14,<4"]
 
 [project.scripts]
 roundforge = "just_bot.__main__:main"
@@ -16,7 +16,7 @@ roundforge = "just_bot.__main__:main"
 include = ["just_bot*"]
 
 [tool.setuptools.package-data]
-just_bot = ["assets/*.png", "assets/*.md"]
+just_bot = ["assets/*.png", "assets/*.md", "activity_web/*.html", "activity_web/*.js", "activity_web/*.css", "activity_web/*.json", "activity_web/vendor/*.js", "activity_web/vendor/*.txt"]
 
 [tool.ruff]
 line-length = 100

@@ -1,0 +1,11 @@
+{
+  "name": "roundforge-activity-sdk",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build:sdk": "node build-sdk.mjs",
+    "test": "node --test ../tests/activity_model.test.mjs"
+  },
+  "dependencies": {"@discord/embedded-app-sdk": "^2.0.0"},
+  "devDependencies": {"esbuild": "^0.25.0"}
+}

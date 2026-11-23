@@ -320,6 +320,7 @@ def install_commands(bot: RoundForgeBot):
             "`/tournament create` — organizer: signup buttons, 2–32 players, automatic brackets\n"
             "`/tournament list` / `bracket` — view events; `retry` / `resolve` — manager decisions\n"
             "Each tournament duel has Accept buttons and the Blitz countdown.\n\n"
+            "`/activity` — open the shared tournament Activity in your current voice room (operator setup required)\n\n"
             "Organizers can use `/blitz solo` to test voice controls without another account.\n"
             "Organizers: `/admin configure`, `/admin channel`, `/admin setup_roles`, `/admin refresh`, `/admin status`.\n"
             "Daily points reward participation; previously solved problems may be solved again. "

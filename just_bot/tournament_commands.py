@@ -84,8 +84,18 @@ class TournamentPanel(discord.ui.View):
         if tournament["state"] in {"registration", "running"}:
             self.add_item(TournamentButton(self, "cancel", "Cancel tournament", discord.ButtonStyle.danger))
         self.add_item(TournamentButton(self, "bracket", "Bracket / status"))
+        if getattr(getattr(bot, "settings", None), "activity_enabled", False):
+            button = TournamentButton(self, "activity", "Open voice activity", discord.ButtonStyle.primary)
+            button.row = 1
+            self.add_item(button)
 
     async def act(self, interaction, action):
+        if action == "activity":
+            if interaction.guild_id != self.guild_id:
+                raise UserError("This tournament belongs to another server.")
+            from .activity_launch import launch_activity
+            await launch_activity(self.bot, interaction, self.tid)
+            return
         await interaction.response.defer(ephemeral=True, thinking=True)
         if interaction.guild_id != self.guild_id or not self.bot.guild_enabled(self.guild_id):
             raise UserError("This tournament belongs to a different or disabled server.")

@@ -248,6 +248,13 @@ Use `/tournament list`, `/tournament bracket`, `/tournament retry`, `/tournament
 and **Embed Links** permissions. See [TOURNAMENTS.md](TOURNAMENTS.md) for all options, reservations,
 forfeits, restart behavior, artwork, and profile-card examples.
 
+When the operator has enabled the voice Activity, join an existing voice channel and use
+`/activity tournament_id:ID` or **Open voice activity**. The room shares an interactive bracket
+and match desk. Players accept for themselves; the Activity shows the countdown and then the
+problem. From voice-channel chat, the command launches natively. From text chat it uses a
+short-lived Activity invite, requiring Create Invite for both you and the bot. Without that
+permission, use the voice channel's chat. See [ACTIVITY.md](ACTIVITY.md) for local review and setup.
+
 ## 10. Server organizer setup
 
 Requires Manage Server:

@@ -25,7 +25,7 @@ class CommandTests(unittest.IsolatedAsyncioTestCase):
         names = {c.qualified_name for c in self.bot.tree.walk_commands()
                  if not isinstance(c, discord.app_commands.Group)}
         self.assertEqual(names, {
-            "handle link", "handle verify", "handle unlink", "handle show", "daily show",
+            "activity", "handle link", "handle verify", "handle unlink", "handle show", "daily show",
             "daily claim", "rank sync", "admin configure", "admin setup_roles", "admin refresh",
             "admin status", "admin channel", "problem", "contests", "leaderboard", "help",
             "training start", "training status", "training next", "training stop",
