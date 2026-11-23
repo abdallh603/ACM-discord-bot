@@ -127,3 +127,25 @@ both generated artwork assets. Pillow 13 was available in the local runtime and 
 the ignored virtual environment from that local copy; outbound pip downloads were unavailable.
 No live multi-account Discord tournament, real CDN avatar download, fresh dependency install,
 remote CI, or Docker build was performed. The bot must be restarted to register the new commands.
+
+## Version 0.6.1 live bracket images
+
+Tournament embeds now attach a data-driven PNG of the actual bracket. Player rows show Discord
+avatar / username ~ CF handle / CF avatar, with initials when unavailable. The image includes
+all rounds, known advancement paths, match states, byes, explicit manager decisions, future-player
+placeholders, and a champion slot. Future rounds only receive recorded winners; the renderer
+never selects or infers a result. Registration uses a player grid. Public panels update as games
+change, and both the bracket button and slash command send the image. The original AI-generated
+branding files remain available as decorative assets, separate from the live bracket.
+
+Avatar lookups batch CF profiles, restrict image hosts and sizes via the existing fetcher, and use
+four download slots, a five-second collection budget, small normalized thumbnails, and a bounded
+memory cache. Image renders are serialized to bound peak memory across simultaneous events.
+The 32-player image fits within 4096 pixels in either dimension and an 8 MiB attachment budget
+in the automated fixture. Source images and photographs are not stored to disk.
+
+Validation: **183 automated tests passed**, including image attachments through the bracket button
+and slash command, real avatar placement, status rendering, winner propagation, byes, full fields,
+and identity-cache/failure behavior. The fictional eight-player sample at
+`docs/tournament-bracket-preview.png` was generated and visually inspected. Recreate it with
+`python scripts/preview_tournament.py`. No live Discord session or real avatar download was tested.

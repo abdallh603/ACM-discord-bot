@@ -1,6 +1,11 @@
 # Blitz tournaments and profile cards
 
-![RoundForge Blitz Tournament](just_bot/assets/tournament-banner.png)
+![Example tournament bracket with sample players](docs/tournament-bracket-preview.png)
+
+The public embed contains an image of the actual bracket: players and their avatars,
+Discord username ~ CF handle labels, round connections, current match states, advancing winners,
+and the champion. The example above uses fictional names and initials. Open the image in Discord
+to view the full resolution, especially for 16- or 32-player fields.
 
 ## Create and register
 
@@ -52,10 +57,12 @@ run simultaneously. Fresh eligible problems are chosen per pairing; manual probl
 supported because later rounds must avoid previously solved problems.
 
 A verified winner advances automatically. Once all pairings in a round are decided, the next
-round is created. The final winner becomes champion and the public panel switches to the
-champion artwork. Separate tournaments may run concurrently with different participants.
+round is created. The final winner becomes champion and is highlighted in the bracket image.
+Separate tournaments may run concurrently with different participants.
 
-View the current bracket with **Bracket / status**, or:
+The image updates as matches progress. **Bracket / status** and `/tournament bracket` also send
+the bracket image, with a text fallback if Attach Files is unavailable. A selected round changes
+the accompanying text; the image shows the complete current bracket. Use:
 
 ```text
 /tournament list
@@ -86,9 +93,7 @@ their recovery records until Discord lets the bot restore their voice state.
 Brackets, registrations, reservations, and game links persist across restarts. Existing signup
 buttons are restored. Active Blitz games follow the normal recovery rules; a clean bot shutdown
 cancels duels, so the tournament manager may need to retry interrupted pairings after restarting.
-Artwork delivery failures remain queued for retry even after the tournament has finished.
-
-![RoundForge Blitz Champion](just_bot/assets/tournament-champion.png)
+Bracket-image delivery failures remain queued for retry even after the tournament has finished.
 
 ## Your Discord ~ Codeforces profile card
 

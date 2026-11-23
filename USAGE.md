@@ -239,7 +239,9 @@ Organizers can run a 2–32-player single-elimination event:
 Players use **Join** on the tournament panel. The host chooses **Start tournament** to generate
 the random bracket and automatic byes. Each duel has its own **Accept** buttons and countdown.
 Verified winners advance automatically; draws and inconclusive games pause for manager action.
-The public panel includes tournament artwork and changes to champion artwork at the end.
+The public panel displays an actual bracket image with player cards, round connections,
+live/pending states, winners, and a champion slot. It updates as the event progresses.
+The **Bracket / status** button and `/tournament bracket` send the bracket image too.
 
 Use `/tournament list`, `/tournament bracket`, `/tournament retry`, `/tournament resolve`, and
 `/tournament cancel` to manage events. Omit minutes for unlimited time. Give the bot **Attach Files**

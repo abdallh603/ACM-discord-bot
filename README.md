@@ -20,11 +20,12 @@ daily challenges, training tracks, upsolving goals, and multiplayer Blitz.
 - Accept/decline buttons, visible 10-second countdowns, and persistent game controls.
 - Toggle everyone-finishes mode and live/final standings with tied ranks and solve times.
 - Single-elimination tournaments for 2–32 players, signup buttons, byes, and automatic advancement.
-- Tournament/champion artwork and Discord-username ~ Codeforces-handle avatar cards.
+- Live bracket images with player/avatar cards, match states, advancing winners, and the champion.
+- Discord-username ~ Codeforces-handle profile cards and original tournament branding artwork.
 - Reuse existing text/voice channels; restore only voice flags the bot applied.
 - SQLite persistence and recovery, Docker, and a credential-free automated test suite.
 
-![Blitz tournament artwork](just_bot/assets/tournament-banner.png)
+![Example tournament bracket](docs/tournament-bracket-preview.png)
 
 RoundForge is inspired by [PSUT TLE](https://github.com/PSUT-ACM-Student-Chapter/psut-discord-tle)
 and the TLE project. It is a fresh implementation with a smaller feature set, not an official

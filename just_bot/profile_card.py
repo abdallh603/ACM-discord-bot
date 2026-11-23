@@ -72,6 +72,7 @@ def fitted_text(draw, text, width, maximum=36):
 
 
 def draw_avatar(canvas, raw, box, initials, accent):
+    box = tuple(round(value) for value in box)
     size = box[2] - box[0]
     picture = None
     if raw and len(raw) <= MAX_AVATAR_BYTES:
@@ -85,7 +86,7 @@ def draw_avatar(canvas, raw, box, initials, accent):
             pass
     if picture is None:
         picture = Image.new("RGB", (size, size), "#252e40")
-        ImageDraw.Draw(picture).text((size / 2, size / 2), initials[:2].upper(), font=font(48),
+        ImageDraw.Draw(picture).text((size / 2, size / 2), initials[:2].upper(), font=font(min(48, max(12, size // 3))),
                                      fill=accent, anchor="mm")
     mask = Image.new("L", (size, size))
     ImageDraw.Draw(mask).ellipse((0, 0, size - 1, size - 1), fill=255)

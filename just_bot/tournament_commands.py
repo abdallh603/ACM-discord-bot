@@ -13,6 +13,7 @@ from .blitz_views import send_invite
 from .command_options import rating_choices
 from .domain import UserError
 from .presentation import embed, safe
+from .tournament_image import TournamentPictures
 
 log = logging.getLogger(__name__)
 ASSETS = Path(__file__).with_name("assets")
@@ -100,6 +101,11 @@ class TournamentPanel(discord.ui.View):
             await engine.start(self.guild_id, self.tid, actor, **manager)
         elif action == "cancel":
             await engine.cancel(self.guild_id, self.tid, actor, **manager)
+        elif action == "bracket":
+            tournament = engine.data.get(self.guild_id, self.tid)
+            await send_bracket(self.bot, tournament, interaction.followup.send,
+                               with_image=interaction.app_permissions.attach_files)
+            return
         await interaction.followup.send(embed=tournament_embed(self.bot, engine.data.get(self.guild_id, self.tid)), ephemeral=True)
 
     async def on_error(self, interaction, error, item):
@@ -116,6 +122,7 @@ class DiscordTournaments:
     def __init__(self, bot):
         self.bot = bot
         self.rendered = {}
+        self.pictures = TournamentPictures(bot)
 
     async def invite(self, tournament, match):
         guild = self.bot.get_guild(tournament["guild_id"])
@@ -126,8 +133,9 @@ class DiscordTournaments:
 
     async def update(self, tournament):
         data = self.bot.tournaments.data
-        signature = str((tournament["state"], tournament["current_round"], tournament["champion_id"],
-                         data.entries(tournament["id"]), data.pairs(tournament["id"], tournament["current_round"])))
+        entries, pairs = data.entries(tournament["id"]), data.pairs(tournament["id"])
+        games = game_states(self.bot, tournament, pairs)
+        signature = str((tournament["state"], tournament["current_round"], tournament["champion_id"], entries, pairs, games))
         if self.rendered.get(tournament["id"]) == signature:
             return True
         if not tournament["message_id"]:
@@ -136,15 +144,39 @@ class DiscordTournaments:
         room = guild.get_channel(tournament["channel_id"]) if guild else None
         if room is None:
             return False
-        filename = "tournament-champion.png" if tournament["state"] == "finished" else "tournament-banner.png"
         result = tournament_embed(self.bot, tournament)
-        result.set_image(url=f"attachment://{filename}")
-        await room.get_partial_message(tournament["message_id"]).edit(
-            embed=result, view=TournamentPanel(self.bot, tournament),
-            attachments=[discord.File(ASSETS / filename)], allowed_mentions=discord.AllowedMentions.none(),
-        )
+        result.set_image(url="attachment://tournament-bracket.png")
+        file = await self.pictures.file(tournament, entries, pairs, games)
+        try:
+            await room.get_partial_message(tournament["message_id"]).edit(
+                embed=result, view=TournamentPanel(self.bot, tournament),
+                attachments=[file], allowed_mentions=discord.AllowedMentions.none(),
+            )
+        finally:
+            file.close()
         self.rendered[tournament["id"]] = signature
         return True
+
+
+def game_states(bot, tournament, pairs):
+    return {p["blitz_id"]: bot.activities.match(tournament["guild_id"], p["blitz_id"])["state"]
+            for p in pairs if p["blitz_id"]}
+
+
+async def send_bracket(bot, tournament, send, *, with_image=True, round_no=None):
+    result = tournament_embed(bot, tournament, round_no)
+    if not with_image:
+        await send(embed=result, ephemeral=True)
+        return
+    data = bot.tournaments.data
+    pairs = data.pairs(tournament["id"])
+    file = await bot.tournaments.platform.pictures.file(tournament, data.entries(tournament["id"]),
+                                                       pairs, game_states(bot, tournament, pairs))
+    result.set_image(url="attachment://tournament-bracket.png")
+    try:
+        await send(embed=result, file=file, ephemeral=True)
+    finally:
+        file.close()
 
 
 class TournamentCommands(app_commands.Group):
@@ -180,13 +212,16 @@ class TournamentCommands(app_commands.Group):
         tournament = await self.bot.tournaments.create(interaction.guild_id, interaction.user.id,
                                                        name, capacity, interaction.channel_id, options)
         result = tournament_embed(self.bot, tournament)
-        result.set_image(url="attachment://tournament-banner.png")
+        result.set_image(url="attachment://tournament-bracket.png")
+        file = await self.bot.tournaments.platform.pictures.file(tournament, [], [], {})
         try:
             message = await interaction.followup.send(embed=result, view=TournamentPanel(self.bot, tournament),
-                                                      file=discord.File(ASSETS / "tournament-banner.png"), wait=True)
+                                                      file=file, wait=True)
         except Exception:
             await self.bot.tournaments.cancel(interaction.guild_id, tournament["id"], interaction.user.id)
             raise
+        finally:
+            file.close()
         async with self.bot.tournaments.lock(tournament["id"]):
             self.bot.tournaments.data.update(tournament["id"], message_id=message.id)
             await self.bot.tournaments.notify(self.bot.tournaments.data.get(interaction.guild_id, tournament["id"]))
@@ -213,8 +248,10 @@ class TournamentCommands(app_commands.Group):
     @app_commands.command(description="Show the current bracket, or a previous round")
     async def bracket(self, interaction: discord.Interaction, tournament_id: str,
                       round_no: app_commands.Range[int, 1, 5] | None = None):
+        await interaction.response.defer(ephemeral=True, thinking=True)
         tournament = self.bot.tournaments.data.get(interaction.guild_id, tournament_id)
-        await interaction.response.send_message(embed=tournament_embed(self.bot, tournament, round_no), ephemeral=True)
+        await send_bracket(self.bot, tournament, interaction.followup.send,
+                           with_image=interaction.app_permissions.attach_files, round_no=round_no)
 
     @app_commands.command(description="List open tournaments in this server")
     async def list(self, interaction: discord.Interaction):

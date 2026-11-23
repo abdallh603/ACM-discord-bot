@@ -1,3 +1,4 @@
+import io
 import unittest
 from types import SimpleNamespace
 from unittest.mock import AsyncMock, Mock
@@ -5,7 +6,7 @@ from unittest.mock import AsyncMock, Mock
 import discord
 from PIL import Image
 
-from just_bot.tournament_commands import ASSETS, DiscordTournaments, TournamentPanel, restore_tournaments, tournament_embed
+from just_bot.tournament_commands import ASSETS, DiscordTournaments, TournamentCommands, TournamentPanel, restore_tournaments, tournament_embed
 import test_tournament as fixtures
 
 
@@ -51,7 +52,7 @@ class TournamentUITests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(self.bot.add_view.call_args.kwargs["message_id"], 543)
         restored.stop()
 
-    async def test_artwork_is_attached_to_signup_and_replaced_with_champion_image(self):
+    async def test_bracket_image_is_attached_to_signup_and_updates_for_champion(self):
         message = SimpleNamespace(edit=AsyncMock())
         room = SimpleNamespace(get_partial_message=lambda mid: message)
         self.bot.get_guild = lambda gid: SimpleNamespace(get_channel=lambda cid: room)
@@ -59,14 +60,14 @@ class TournamentUITests(unittest.IsolatedAsyncioTestCase):
         self.engine.data.update(self.event["id"], message_id=543)
         await adapter.update(self.engine.data.get(10, self.event["id"]))
         file = message.edit.call_args.kwargs["attachments"][0]
-        self.assertEqual(file.filename, "tournament-banner.png")
+        self.assertEqual(file.filename, "tournament-bracket.png")
         file.close()
         await adapter.update(self.engine.data.get(10, self.event["id"]))
         self.assertEqual(message.edit.await_count, 1)
         self.engine.data.update(self.event["id"], state="finished", champion_id=1)
         await adapter.update(self.engine.data.get(10, self.event["id"]))
         file = message.edit.call_args.kwargs["attachments"][0]
-        self.assertEqual(file.filename, "tournament-champion.png")
+        self.assertEqual(file.filename, "tournament-bracket.png")
         self.assertIn("Champion", message.edit.call_args.kwargs["embed"].description)
         self.assertEqual([item.label for item in message.edit.call_args.kwargs["view"].children], ["Bracket / status"])
         file.close()
@@ -88,3 +89,21 @@ class TournamentUITests(unittest.IsolatedAsyncioTestCase):
         result = tournament_embed(self.bot, current)
         self.assertLess(len(result.description), 4096)
         self.assertEqual(len(self.engine.data.pairs(self.event["id"], 1)), 16)
+
+    async def test_bracket_button_and_slash_command_send_the_rendered_image(self):
+        self.bot.get_guild = lambda gid: None
+        self.engine.platform = DiscordTournaments(self.bot)
+        self.interaction.app_permissions = SimpleNamespace(attach_files=True)
+        captured = []
+        async def send(**kwargs):
+            captured.append(kwargs["file"].fp.read())
+        self.interaction.followup.send.side_effect = send
+        await self.view.act(self.interaction, "bracket")
+        group = TournamentCommands(self.bot)
+        command = group.get_command("bracket")
+        await command.callback(group, self.interaction, self.event["id"], None)
+        self.assertEqual(len(captured), 2)
+        for raw in captured:
+            with Image.open(io.BytesIO(raw)) as image:
+                self.assertEqual(image.format, "PNG")
+        self.assertEqual(self.interaction.followup.send.call_args.kwargs["embed"].image.url, "attachment://tournament-bracket.png")

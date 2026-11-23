@@ -1,12 +1,13 @@
 # RoundForge tournament artwork
 
 Generated with the built-in image-generation tool for this project. No external brand logos,
-university marks, or real people's photographs are included. The originals were copied into
-this package; the bot attaches these files to tournament messages. They are included in
-Python packages and Docker images.
+university marks, or real people's photographs are included. These decorative branding originals
+are saved in this package. The live tournament embed uses a data-driven bracket image rendered
+by `tournament_image.py`, with actual matchups and results. An illustrative output is saved at
+`docs/tournament-bracket-preview.png`.
 
-- `tournament-banner.png`: registration and running bracket panel.
-- `tournament-champion.png`: replaces the banner when a champion is confirmed.
+- `tournament-banner.png`: original tournament branding asset.
+- `tournament-champion.png`: original champion branding asset.
 
 ## Final banner prompt
 

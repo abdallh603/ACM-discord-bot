@@ -20,7 +20,11 @@ The profile command fetches public Discord and Codeforces avatars to render the 
 Discord-username ~ CF-handle card. Photos are processed in memory and are not retained on the
 bot's disk. The resulting image is uploaded to the command's Discord channel and follows Discord's
 message/attachment retention. Missing photos use initials. Generated tournament/champion artwork
-contains no player photos. Tournament registrations/brackets persist in SQLite until the operator
+contains no player photos. Live bracket images use players' Discord/CF avatars and labels;
+small avatar thumbnails use a bounded in-memory cache (at most 256 identities), with a
+15-minute freshness period. Entries are evicted as the cache fills or when the bot stops.
+No photos are cached to disk. Bracket images are uploaded to Discord and follow its attachment retention.
+Tournament registrations/brackets persist in SQLite until the operator
 removes them; leave registration or cancel an event to release its active reservation.
 
 `/handle unlink` removes the current handle link and pending verification. It does not erase historical
