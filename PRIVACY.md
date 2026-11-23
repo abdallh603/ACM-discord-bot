@@ -1,19 +1,27 @@
 # RoundForge data and privacy
 
 Each bot operator hosts their own instance and SQLite database. Server data is keyed by Discord
-server ID. RoundForge sends requests only to Discord and the public Codeforces API for its features;
+server ID. RoundForge sends requests only to Discord and Codeforces (including the public API and avatar CDNs) for its features;
 it does not use analytics, advertising, or AI services.
 
 Stored data includes Discord server/member/channel/role IDs and game message IDs (to restore buttons
 and update standings), linked Codeforces handles and ratings,
 verification codes valid for ten minutes, server settings, practice goals, daily claims, game rosters/results,
-and voice recovery ownership. It does not request Codeforces passwords/API keys, read message content,
+and voice recovery ownership. Tournament records also include signup lists, bracket pairings, reservations,
+game links, manager decisions, champions, and pending artwork delivery. It does not request Codeforces passwords/API keys, read message content,
 record voice audio, or store payment information. The bot's Discord token belongs in local environment
 configuration, not the database or repository.
 
 Linking and verification happen by command. Game participants accept the displayed game settings
 before voice changes begin. Menus are private to the opener. Game messages use the selected text
 channel's existing audience; they are not automatically confidential.
+
+The profile command fetches public Discord and Codeforces avatars to render the requested
+Discord-username ~ CF-handle card. Photos are processed in memory and are not retained on the
+bot's disk. The resulting image is uploaded to the command's Discord channel and follows Discord's
+message/attachment retention. Missing photos use initials. Generated tournament/champion artwork
+contains no player photos. Tournament registrations/brackets persist in SQLite until the operator
+removes them; leave registration or cancel an event to release its active reservation.
 
 `/handle unlink` removes the current handle link and pending verification. It does not erase historical
 claims/games, which remain for duplicate prevention, results, and recovery. Expired verification

@@ -19,7 +19,7 @@ class CodeforcesError(UserError):
 def fetch_json(method: str, params: dict):
     request = Request(
         f"https://codeforces.com/api/{method}?{urlencode(params)}",
-        headers={"User-Agent": "RoundForge/0.4 (Discord community bot)", "Accept": "application/json"},
+        headers={"User-Agent": "RoundForge/0.6 (Discord community bot)", "Accept": "application/json"},
     )
     with urlopen(request, timeout=20) as response:
         return json.load(response)

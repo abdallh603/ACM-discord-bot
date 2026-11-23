@@ -92,3 +92,38 @@ Validation: **153 automated tests passed, no skips** with the installed discord.
 countdown rendering/cancellation, shutdown/restart recovery, concurrent games, multi-topic
 selection, duration input, failed delivery, and standings updates/ties. No live multi-account
 Discord test was performed. Restart the bot to load the code and refresh its command registration.
+
+## Version 0.6.0 tournaments and profile cards
+
+Added durable single-elimination tournaments for 2–32 verified players: registration buttons,
+randomized saved seeding, distributed byes, simultaneous 1v1 Blitz pairings, automatic advancement,
+and a confirmed champion. Per-duel rules retain consent, countdowns, room reuse, independent clocks,
+and ownership-based voice restoration. Tournaments use first-solve games and fresh eligible problems.
+Draws, cancellations, and inconclusive outcomes block advancement for an explicit manager retry or
+decision; manual decisions are visible in the bracket. Tournament and Blitz reservations prevent
+overlapping games, and eliminated players are released. A next-round winner with pending voice
+recovery waits safely before getting another invitation.
+
+Added tournament/champion PNG artwork, embedded in public tournament panels and included in package
+data/Docker images. Artwork prompts/provenance are in `just_bot/assets/README.md`. The profile command
+renders an actual Discord-avatar / username ~ Codeforces-handle / CF-avatar PNG card with Pillow.
+Only allowlisted HTTPS CF avatar hosts are fetched, redirects are refused, bytes and image pixels
+are bounded, and missing/invalid images fall back to initials. Requests have timeouts and limited
+concurrency. Photos are processed in memory; there is no avatar disk cache. Lack of Attach Files
+permission retains the ordinary profile embed. Docker includes a Unicode font for card labels.
+
+Tournament persistence uses additive tables in the existing SQLite database. Full rounds and final
+reservation release are transactional. Recovery relinks a Blitz committed before its bracket link,
+retries interrupted cancellation, restores persistent signup controls, and retains failed final
+artwork delivery for retry. Clean bot shutdown cancels current duels via normal Blitz shutdown;
+the tournament manager can retry those blocked pairings after restarting.
+
+Validation: **176 automated tests passed, no skips**, including a complete five-player tournament
+with real Blitz acceptance/polling, all supported seeding sizes, 32-player embed bounds, concurrent
+guilds/events, byes, authorization, retry/resolve, reservation conflicts, recovery, artwork swapping,
+avatar host/size checks, profile rendering, and missing-file-permission fallback. `pip check` and
+`git diff --check` passed. The profile-card example was rendered and visually inspected, as were
+both generated artwork assets. Pillow 13 was available in the local runtime and was installed into
+the ignored virtual environment from that local copy; outbound pip downloads were unavailable.
+No live multi-account Discord tournament, real CDN avatar download, fresh dependency install,
+remote CI, or Docker build was performed. The bot must be restarted to register the new commands.

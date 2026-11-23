@@ -4,6 +4,7 @@ A public Discord bot for Codeforces communities: verified handles, problem recom
 daily challenges, training tracks, upsolving goals, and multiplayer Blitz.
 
 **[How to use the bot](USAGE.md)** · **[Blitz details](BLITZ.md)** ·
+**[Tournaments and profile cards](TOURNAMENTS.md)** ·
 **[Publish the source yourself](PUBLISHING.md)** · **[Data and privacy](PRIVACY.md)**
 
 ## Features
@@ -18,8 +19,12 @@ daily challenges, training tracks, upsolving goals, and multiplayer Blitz.
 - Player picker, multi-topic/rating/voice menus, manual problems, and mute/deafen/both/off options.
 - Accept/decline buttons, visible 10-second countdowns, and persistent game controls.
 - Toggle everyone-finishes mode and live/final standings with tied ranks and solve times.
+- Single-elimination tournaments for 2–32 players, signup buttons, byes, and automatic advancement.
+- Tournament/champion artwork and Discord-username ~ Codeforces-handle avatar cards.
 - Reuse existing text/voice channels; restore only voice flags the bot applied.
 - SQLite persistence and recovery, Docker, and a credential-free automated test suite.
+
+![Blitz tournament artwork](just_bot/assets/tournament-banner.png)
 
 RoundForge is inspired by [PSUT TLE](https://github.com/PSUT-ACM-Student-Chapter/psut-discord-tle)
 and the TLE project. It is a fresh implementation with a smaller feature set, not an official
@@ -34,7 +39,8 @@ Requirements: Python 3.11+ (3.12 recommended), outbound HTTPS, and a Discord bot
 2. Keep privileged Members and Message Content intents off. The code enables ordinary Guilds
    and Voice States intents; it does not join or record voice audio.
 3. Install using the `bot` and `applications.commands` scopes. Minimum permissions are
-   View Channels, Send Messages, and Embed Links. Add Connect/Move Members/Mute Members/Deafen Members
+   View Channels, Send Messages, and Embed Links. Add Attach Files for tournament artwork and profile cards.
+   Add Connect/Move Members/Mute Members/Deafen Members
    for the voice modes you enable, Manage Roles for rank roles, and Manage Channels only for fallback rooms.
 4. Copy `.env.example` to `.env` and set `DISCORD_TOKEN` locally.
 5. **Leave `DISCORD_GUILD_ID` empty for public mode.** A positive ID restricts the instance to one

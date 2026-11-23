@@ -19,8 +19,11 @@ from .config import Settings
 from .domain import UserError, rank_for, upcoming_contests
 from .presentation import contest_embed, problem_embed, safe
 from .practice import Practice
+from .profile_card import ProfileCards
 from .service import Community
 from .storage import Store
+from .tournament import Tournaments
+from .tournament_commands import DiscordTournaments, TournamentCommands, restore_tournaments
 
 log = logging.getLogger(__name__)
 
@@ -98,7 +101,9 @@ class RoundForgeBot(discord.Client):
         self.community = Community(self.store, self.cf)
         self.activities = Activities(self.store)
         self.practice = Practice(self.community, self.activities)
+        self.profile_cards = ProfileCards()
         self.blitz = Blitz(self.community, self.activities, DiscordBlitz(self))
+        self.tournaments = Tournaments(self.community, self.blitz, DiscordTournaments(self))
         self.tree = CommunityTree(
             self, allowed_contexts=app_commands.AppCommandContext(guild=True, dm_channel=False, private_channel=False),
             allowed_installs=app_commands.AppInstallationType(guild=True, user=False),
@@ -113,10 +118,12 @@ class RoundForgeBot(discord.Client):
         self._store_closed = False
         install_commands(self)
         install_activity_commands(self)
+        self.tree.add_command(TournamentCommands(self))
 
     async def setup_hook(self):
         from .blitz_views import restore_panels
         restore_panels(self)
+        restore_tournaments(self)
         if self.settings.guild_id:
             guild = discord.Object(id=self.settings.guild_id)
             self.tree.copy_global_to(guild=guild)
@@ -161,6 +168,7 @@ class RoundForgeBot(discord.Client):
             task.cancel()
         await asyncio.gather(*(job for job in jobs if job), return_exceptions=True)
         if not self._store_closed:
+            await self.tournaments.close()
             await self.blitz.close()
             for guild in self.active_guilds():
                 await self.blitz.close(guild.id)
@@ -300,6 +308,7 @@ class RoundForgeBot(discord.Client):
         try:
             for guild in self.active_guilds():
                 await self.blitz.tick(guild.id)
+                await self.tournaments.tick(guild.id)
         except Exception:
             log.exception("Blitz clock failed; will retry")
 

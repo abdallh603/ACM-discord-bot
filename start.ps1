@@ -16,7 +16,7 @@ if (-not (Test-Path -LiteralPath $botPython)) {
     if ($LASTEXITCODE -ne 0) { throw 'Could not create the Python environment.' }
 }
 
-& $botPython -c "import importlib.util, sys; sys.exit(0 if all(importlib.util.find_spec(name) is not None for name in ('discord', 'dotenv', 'tzdata')) else 1)"
+& $botPython -c "import importlib.util, sys; sys.exit(0 if all(importlib.util.find_spec(name) is not None for name in ('discord', 'dotenv', 'tzdata', 'PIL')) else 1)"
 if ($LASTEXITCODE -ne 0) {
     Write-Host 'Installing bot dependencies...'
     & $botPython -m pip install --disable-pip-version-check -r requirements.txt

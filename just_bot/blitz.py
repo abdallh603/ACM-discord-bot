@@ -149,6 +149,8 @@ class Blitz:
             match = self.data.match(guild, match_id)
             if actor not in self.managers(match) or match["state"] != "pending":
                 raise UserError("Only a game manager can edit its pending invitation. Cancel an active match to change its rules.")
+            if match["options"].get("tournament_id"):
+                raise UserError("Tournament match rules are fixed. Cancel and use /tournament retry if needed.")
             if match["invite_expires"] <= int(time.time()):
                 raise UserError("This invitation expired. Start a new challenge.")
             updated = validate_options({**match["options"], **options,

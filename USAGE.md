@@ -14,9 +14,11 @@ temporarily set **First name** to that exact code, save, then run `/handle verif
 Restore your original first name after verification. Your password/API key is never requested.
 This verifies account ownership, not university enrollment or real-world identity.
 
-- `/handle show` shows your linked profile; add `member` to select someone else.
+- `/handle show` shows your linked profile and an avatar card:
+  **Discord avatar · Discord username ~ CF handle · CF avatar**. Add `member` to select someone else.
+  Missing avatars use initials; without Attach Files permission the ordinary profile embed still works.
 - `/rank sync` refreshes your rating and optional rank role.
-- `/handle unlink` removes the link and owned CF rank roles. Cancel your Blitz games and
+- `/handle unlink` removes the link and owned CF rank roles. Leave/cancel your tournament, cancel your Blitz games, and
   complete voice recovery first. Historical game/claim records remain as described in [PRIVACY.md](PRIVACY.md).
 
 ## 2. Find problems and see rankings
@@ -225,6 +227,24 @@ An organizer with Manage Server can test alone with:
 Join voice first. Test cancellation with `/blitz cancel`, timeout by waiting one minute, or solve
 detection with a longer duration and a fresh accepted practice submission. Omit minutes for unlimited.
 Solo tests use the same recovery and room-reuse code as multiplayer games.
+
+## Blitz tournaments
+
+Organizers can run a 2–32-player single-elimination event:
+
+```text
+/tournament create name:Community Cup capacity:16 minutes:20 rating:1200
+```
+
+Players use **Join** on the tournament panel. The host chooses **Start tournament** to generate
+the random bracket and automatic byes. Each duel has its own **Accept** buttons and countdown.
+Verified winners advance automatically; draws and inconclusive games pause for manager action.
+The public panel includes tournament artwork and changes to champion artwork at the end.
+
+Use `/tournament list`, `/tournament bracket`, `/tournament retry`, `/tournament resolve`, and
+`/tournament cancel` to manage events. Omit minutes for unlimited time. Give the bot **Attach Files**
+and **Embed Links** permissions. See [TOURNAMENTS.md](TOURNAMENTS.md) for all options, reservations,
+forfeits, restart behavior, artwork, and profile-card examples.
 
 ## 10. Server organizer setup
 

@@ -7,6 +7,7 @@ import time
 import uuid
 
 from .domain import UserError
+from .tournament_store import TOURNAMENT_SCHEMA
 
 ACTIVITY_SCHEMA = """
 CREATE TABLE IF NOT EXISTS practice_goals (
@@ -33,6 +34,7 @@ CREATE TABLE IF NOT EXISTS blitz_slots (
 );
 CREATE INDEX IF NOT EXISTS blitz_guild_state ON blitz_matches(guild_id, state);
 """
+ACTIVITY_SCHEMA += TOURNAMENT_SCHEMA
 
 
 class Activities:
@@ -72,6 +74,19 @@ class Activities:
         match_id = uuid.uuid4().hex[:12]
         try:
             with self.db:
+                for user, handle in players:
+                    reserved = self.db.execute(
+                        "SELECT * FROM tournament_slots WHERE guild_id=? AND (user_id=? OR handle=?)",
+                        (guild, user, handle),
+                    ).fetchall()
+                    tournament_id = options.get("tournament_id")
+                    if reserved and (not tournament_id or any(
+                        r["tournament_id"] != tournament_id or r["user_id"] != user
+                        or r["handle"].casefold() != handle.casefold() for r in reserved
+                    )):
+                        raise UserError("A player is reserved for a tournament. Finish or leave it first.")
+                    if tournament_id and not reserved:
+                        raise UserError("A tournament player's verified handle or reservation changed.")
                 self.db.execute(
                     "INSERT INTO blitz_matches(id,guild_id,creator_id,state,options,"
                     "created_at,invite_expires) VALUES (?, ?, ?, 'pending', ?, ?, ?)",
@@ -81,7 +96,8 @@ class Activities:
                     self.db.execute("INSERT INTO blitz_slots VALUES (?, ?, ?, ?)",
                                     (guild, user, handle, match_id))
                     self.db.execute("INSERT INTO blitz_players(match_id,user_id,handle,accepted_revision) VALUES (?, ?, ?, ?)",
-                                    (match_id, user, handle, options["revision"] if user == creator else 0))
+                                    (match_id, user, handle, options["revision"] if user == creator
+                                     and not options.get("hosted") else 0))
         except sqlite3.IntegrityError as exc:
             raise UserError("One of these members already has a blitz invite, match, or pending mute recovery.") from exc
         return self.match(guild, match_id)

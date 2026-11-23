@@ -42,6 +42,7 @@ and configure Guild Install with `bot` and `applications.commands` scopes. Leave
 Use your application ID in an install URL, and grant only the features' necessary permissions:
 
 - Basic commands: View Channels, Send Messages, Embed Links.
+- Tournament artwork/profile cards: Attach Files.
 - Voice games: Connect, Move Members, Mute Members and/or Deafen Members as configured.
 - Optional fallback rooms: Manage Channels.
 - Optional rank roles: Manage Roles, with the bot's role placed above its created CF roles.

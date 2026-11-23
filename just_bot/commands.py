@@ -81,7 +81,15 @@ class Handles(app_commands.Group):
         result.add_field(name="Best rating", value=str(profile.get("maxRating", "Unrated")))
         result.add_field(name="Community member", value=safe(member.display_name))
         result.add_field(name="Organization (self-reported)", value=safe(profile.get("organization", "—")))
-        await interaction.followup.send(embed=result)
+        try:
+            card = await self.bot.profile_cards.build(member, profile) if interaction.app_permissions.attach_files else None
+        except (TimeoutError, OSError, ValueError):
+            card = None
+        if card:
+            result.set_image(url="attachment://roundforge-profile.png")
+            await interaction.followup.send(embed=result, file=card)
+        else:
+            await interaction.followup.send(embed=result)
 
 
 class Daily(app_commands.Group):
@@ -293,7 +301,7 @@ def install_commands(bot: RoundForgeBot):
             "Welcome to RoundForge Competitive Programming",
             "**A Codeforces community bot for every server**\n\n"
             "`/handle link` → `/handle verify` — prove account ownership\n"
-            "`/handle show` — Codeforces profile\n"
+            "`/handle show` — Discord ~ Codeforces avatar card and profile\n"
             "`/problem` — unsolved problem by rating and topic\n"
             "`/daily show` → `/daily claim` — daily challenge, 10 points\n"
             "`/leaderboard` — server ratings or monthly daily points\n"
@@ -309,6 +317,9 @@ def install_commands(bot: RoundForgeBot):
             "`/blitz standings` — verified solve times and ranks\n"
             "Omit blitz minutes for unlimited time; `/blitz cancel` stops the game.\n"
             "`/blitz games` — simultaneous games; `/blitz cancel` releases voices\n\n"
+            "`/tournament create` — organizer: signup buttons, 2–32 players, automatic brackets\n"
+            "`/tournament list` / `bracket` — view events; `retry` / `resolve` — manager decisions\n"
+            "Each tournament duel has Accept buttons and the Blitz countdown.\n\n"
             "Organizers can use `/blitz solo` to test voice controls without another account.\n"
             "Organizers: `/admin configure`, `/admin channel`, `/admin setup_roles`, `/admin refresh`, `/admin status`.\n"
             "Daily points reward participation; previously solved problems may be solved again. "
