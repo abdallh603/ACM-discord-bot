@@ -9,8 +9,8 @@ import sqlite3
 import time
 import uuid
 
-from .blitz import TERMINAL, validate_options
-from .domain import UserError
+from .blitz import TERMINAL, UNSET, validate_options
+from .domain import UserError, problem_key
 from .tournament_store import TournamentStore
 
 log = logging.getLogger(__name__)
@@ -139,10 +139,12 @@ class Tournaments:
                     self.data.db.execute("DELETE FROM tournament_slots WHERE tournament_id=? AND user_id=?",
                                          (pair["tournament_id"], user))
 
-    async def resolve(self, guild, tournament_id, actor, round_no, position, winner, *, organizer=False):
+    async def resolve(self, guild, tournament_id, actor, round_no, position, winner, *, organizer=False, expected_match_id=UNSET):
         async with self.lock(tournament_id):
             tournament = self.managed(guild, tournament_id, actor, organizer)
             pair = self.data.pair(tournament_id, round_no, position)
+            if expected_match_id is not UNSET and pair["blitz_id"] != expected_match_id:
+                raise UserError("This pairing has a new attempt. Review it before choosing a winner.")
             if tournament["state"] != "running" or pair["state"] != "blocked":
                 raise UserError("Only a blocked bracket match can be resolved. Cancel a running duel first.")
             if winner not in {pair["player_a"], pair["player_b"]}:
@@ -151,10 +153,12 @@ class Tournaments:
             await self.notify(self.data.get(guild, tournament_id))
         await self.tick(guild)
 
-    async def retry(self, guild, tournament_id, actor, round_no, position, *, organizer=False):
+    async def retry(self, guild, tournament_id, actor, round_no, position, *, organizer=False, expected_match_id=UNSET):
         async with self.lock(tournament_id):
             tournament = self.managed(guild, tournament_id, actor, organizer)
             pair = self.data.pair(tournament_id, round_no, position)
+            if expected_match_id is not UNSET and pair["blitz_id"] != expected_match_id:
+                raise UserError("This pairing has a new attempt. Review it before retrying.")
             if tournament["state"] != "running" or pair["state"] != "blocked":
                 raise UserError("Only blocked matches can be retried.")
             self.data.update_pair(pair, state="ready", blitz_id=None, attempt=pair["attempt"] + 1, note="Retry requested.")
@@ -233,18 +237,24 @@ class Tournaments:
 
     async def launch(self, tournament, pair):
         tid, guild = tournament["id"], tournament["guild_id"]
+        history = self.linked_matches(guild, tid)
         # Repair the crash window between creating a durable Blitz and binding it to its pair.
-        existing = next((m for m in self.linked_matches(guild, tid)
+        existing = next((m for m in history
                          if m["options"].get("tournament_id") == tid
                          and m["options"].get("tournament_round") == pair["round_no"]
                          and m["options"].get("tournament_position") == pair["position"]
                          and m["options"].get("tournament_attempt") == pair["attempt"]), None)
         if existing is None:
+            excluded = [list(problem_key(m["problem"])) for m in history
+                        if m["problem"] and m["starts_at"] is not None
+                        and m["options"].get("tournament_round") == pair["round_no"]
+                        and m["options"].get("tournament_position") == pair["position"]]
             try:
                 existing = await self.blitz.host(guild, tournament["creator_id"],
                     [pair["player_a"], pair["player_b"]], {**tournament["options"],
                     "tournament_id": tid, "tournament_round": pair["round_no"],
-                    "tournament_position": pair["position"], "tournament_attempt": pair["attempt"]})
+                    "tournament_position": pair["position"], "tournament_attempt": pair["attempt"],
+                    "excluded_problems": excluded})
             except UserError as exc:
                 busy = any(self.blitz.data.slot(guild, user) for user in (pair["player_a"], pair["player_b"]))
                 self.data.update_pair(pair, state="ready" if busy else "blocked", note=str(exc)[:300])

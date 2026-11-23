@@ -220,9 +220,10 @@ function deskPerson(id) {
   return person;
 }
 
-function rules(parent, tournament) {
+function rules(parent, tournament, game = null) {
   const grid = el('div', 'desk-rules');
-  for (const [label, value] of [['Time limit', tournament.minutes ? `${tournament.minutes} minutes` : 'Unlimited'],
+  const minutes = game && Object.hasOwn(game, 'minutes') ? game.minutes : tournament.minutes;
+  for (const [label, value] of [['Time limit', minutes ? `${minutes} minutes` : 'Unlimited'],
     ['Voice mode', ({none: 'No effects', mute: 'Mute', deafen: 'Deafen', both: 'Mute + deafen'})[tournament.voice_mode]],
     ['Problem rating', tournament.rating || 'Automatic'], ['Topics', tournament.topics.length ? tournament.topics.join(', ') : tournament.random_topic ? 'Random topic' : 'Any topic']]) {
     const cell = el('div'); cell.append(el('span', 'rule-label', label), el('span', 'rule-value', value)); grid.append(cell);
@@ -256,7 +257,7 @@ function renderDesk() {
   const versus = el('div', 'desk-versus'); versus.append(deskPerson(pair.player_a), el('span', 'versus-label', 'vs'), deskPerson(pair.player_b)); pane.append(versus);
   if (['cancelled', 'cancelling'].includes(tournament.state)) {
     pane.append(el('p', 'desk-copy', 'This tournament has stopped. RoundForge restores the voice changes it owns; disconnected players are retried when they rejoin.'));
-    rules(pane, tournament); return;
+    rules(pane, tournament, game); return;
   }
   const own = game?.players.some(p => p.id === model.viewer.id), manageable = own || tournament.can_manage;
   if (game?.state === 'pending') {
@@ -286,26 +287,88 @@ function renderDesk() {
       if (url) { const open = el('button', 'primary', 'Open problem'); open.onclick = () => openLink(url); box.append(open); }
       pane.append(box);
     }
-    if (manageable) pane.append(actionButton('Check my solve', 'check', {match_id: game.id}, {className: 'full'}));
+    if (manageable) pane.append(actionButton(own ? 'Check my solve' : 'Check solves', 'check', {match_id: game.id}, {className: 'full'}));
   } else if (pair.winner_id) {
     pane.append(el('h3', 'desk-section-title', tournament.champion_id === pair.winner_id && pair.round_no === columns.length
       ? `${player(pair.winner_id)?.username || 'The winner'} is the champion.` : `${player(pair.winner_id)?.username || 'The winner'} advances.`));
     pane.append(el('p', 'desk-copy', pair.note === 'Bye' ? 'This player advances with a bye.' : pair.note?.startsWith('Manager decision') ? pair.note : 'This pairing has a confirmed winner. Follow the connecting line to their next round.'));
   } else {
-    pane.append(el('p', 'desk-copy', pair.state === 'blocked' ? pair.note || 'The manager needs to retry or resolve this match in Discord.' : 'The next pairing becomes playable once the previous round is decided.'));
+    pane.append(el('p', 'desk-copy', pair.note || (pair.state === 'blocked' ? 'The manager can retry this match or choose who advances using the controls below.' : 'The next pairing becomes playable once the previous round is decided.')));
   }
-  rules(pane, tournament);
+  rules(pane, tournament, game);
   pane.append(el('p', 'desk-notice', 'Only voice changes applied by RoundForge are restored. Players keep control of their own microphone settings.'));
-  managerControls(pane, tournament); updateTimers();
+  managerControls(pane, tournament, pair, game); updateTimers();
 }
 
-function managerControls(parent, tournament) {
+function confirmChange({title, message, label, cancel = 'Go back', danger = false}, callback) {
+  const dialog = $('confirm-dialog');
+  $('confirm-title').textContent = title; $('confirm-body').textContent = message;
+  $('confirm-yes').textContent = label; $('confirm-no').textContent = cancel;
+  $('confirm-yes').className = danger ? 'danger' : 'primary';
+  $('confirm-yes').onclick = () => { dialog.close(); callback(); };
+  dialog.showModal();
+}
+
+function changeTimer(tournament, game) {
+  const dialog = $('timer-dialog'), input = $('timer-minutes'), unlimited = $('timer-unlimited');
+  const minutes = Object.hasOwn(game, 'minutes') ? game.minutes : tournament.minutes;
+  unlimited.checked = minutes === null;
+  input.value = String(minutes || 20); input.disabled = unlimited.checked; input.required = !unlimited.checked;
+  unlimited.onchange = () => { input.disabled = unlimited.checked; input.required = !unlimited.checked; };
+  $('timer-form').onsubmit = event => {
+    event.preventDefault();
+    const value = unlimited.checked ? null : Number(input.value);
+    if (value !== null && (!Number.isInteger(value) || value < 1 || value > 180)) { toast('Enter 1–180 whole minutes or choose unlimited time.'); return; }
+    const body = {match_id: game.id, minutes: value, expected_ends_at: game.ends_at};
+    dialog.close();
+    if (value !== null && game.starts_at + value * 60 <= now()) {
+      confirmChange({title: 'End play now?', message: 'That deadline is already past. Applying it releases bot-owned voice effects and starts result verification.', label: 'Apply elapsed deadline', danger: true}, () => act('set_time', body, tournament.id));
+    } else act('set_time', body, tournament.id);
+  };
+  dialog.showModal();
+}
+
+function chooseWinner(tournament, pair) {
+  const select = $('winner-select');
+  select.replaceChildren(new Option('Choose a player', ''));
+  for (const id of [pair.player_a, pair.player_b]) {
+    const value = player(id); if (value) select.add(new Option(`${value.username} ~ ${value.handle}`, id));
+  }
+  $('winner-form').onsubmit = event => {
+    event.preventDefault();
+    const id = select.value, chosen = player(id);
+    if (![pair.player_a, pair.player_b].includes(id) || !chosen) return;
+    $('winner-dialog').close();
+    confirmChange({title: `Advance ${chosen.username}?`, message: `Record a manager decision for round ${pair.round_no}, match ${pair.position}. This advancement cannot be undone here.`, label: 'Confirm advancement'},
+      () => act('resolve_match', {round_no: pair.round_no, position: pair.position, expected_match_id: pair.blitz_id, winner_id: id}, tournament.id));
+  };
+  $('winner-dialog').showModal();
+}
+
+function managerControls(parent, tournament, pair = null, game = null) {
+  if (tournament.can_manage && tournament.state === 'running' && pair) {
+    const panel = el('details', 'manager-panel'), body = el('div', 'manager-buttons');
+    panel.open = pair.state === 'blocked'; panel.append(el('summary', '', 'Manage this match'));
+    if (pair.state === 'blocked') {
+      body.append(el('p', '', 'Start a fresh attempt or record an explicit advancement. Both players must accept a retry.'));
+      body.append(actionButton('Retry match', 'retry_match', {round_no: pair.round_no, position: pair.position, expected_match_id: pair.blitz_id}, {className: 'full'}));
+      const resolve = el('button', 'primary full', 'Choose winner'); resolve.disabled = busy;
+      resolve.onclick = () => chooseWinner(tournament, pair); body.append(resolve);
+    } else if (game && ['pending', 'starting', 'countdown', 'active', 'settling'].includes(game.state)) {
+      if (game.state === 'active') {
+        const timer = el('button', 'full', 'Change timer'); timer.disabled = busy;
+        timer.onclick = () => changeTimer(tournament, game); body.append(timer);
+      }
+      const stop = el('button', 'secondary-action', 'Stop this match'); stop.disabled = busy;
+      stop.onclick = () => confirmChange({title: 'Stop this match?', message: 'The bot releases its voice changes. The tournament manager can then retry the pairing or choose who advances.', label: 'Stop match', danger: true},
+        () => act('cancel_match', {match_id: game.id}, tournament.id));
+      body.append(stop);
+    } else body.append(el('p', '', 'No match changes are available at this stage.'));
+    panel.append(body); parent.append(panel);
+  }
   if (tournament.can_manage && ['registration', 'running'].includes(tournament.state)) {
     const cancel = el('button', 'secondary-action', 'Cancel tournament'); cancel.disabled = busy;
-    cancel.onclick = () => {
-      const dialog = $('confirm-dialog'); dialog.showModal();
-      $('confirm-yes').onclick = () => { dialog.close(); act('cancel_tournament', {}, tournament.id); };
-    };
+    cancel.onclick = () => confirmChange({title: 'Cancel this tournament?', message: 'Its Blitz games stop and the bot restores the voice changes it owns.', label: 'Cancel tournament', cancel: 'Keep playing', danger: true}, () => act('cancel_tournament', {}, tournament.id));
     parent.append(cancel);
   }
 }
@@ -363,6 +426,7 @@ $('tournament-select').onchange = event => { if (event.target.value) act('select
 $('my-match').onclick = () => { const pair = myPair(); if (pair) { selected = key(pair); renderBoard(); renderDesk(); if (innerWidth < 740) $('match-content').scrollIntoView({behavior: 'smooth', block: 'start'}); } else toast('You do not have a match in this bracket yet.'); };
 $('bracket-tab').onclick = () => $('bracket-title').scrollIntoView({behavior: 'smooth', block: 'start'});
 $('reconnect').onclick = connect; $('confirm-no').onclick = () => $('confirm-dialog').close();
+$('timer-close').onclick = () => $('timer-dialog').close(); $('winner-close').onclick = () => $('winner-dialog').close();
 for (const button of document.querySelectorAll('[data-scenario]')) button.onclick = async () => {
   if (!preview) return; selected = null;
   await act('demo_scenario', {scenario: button.dataset.scenario});

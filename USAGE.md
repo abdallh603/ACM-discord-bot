@@ -254,6 +254,9 @@ and match desk. Players accept for themselves; the Activity shows the countdown 
 problem. From voice-channel chat, the command launches natively. From text chat it uses a
 short-lived Activity invite, requiring Create Invite for both you and the bot. Without that
 permission, use the voice channel's chat. See [ACTIVITY.md](ACTIVITY.md) for local review and setup.
+Hosts/managers can use **Manage this match** in the Activity to retry a blocked pairing,
+choose and confirm a manual winner, change an active timer (including unlimited), or stop
+one duel. The server applies the same permissions and recovery rules as the bot commands.
 
 ## 10. Server organizer setup
 

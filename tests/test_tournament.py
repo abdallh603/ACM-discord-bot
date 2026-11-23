@@ -233,6 +233,24 @@ class TournamentTests(unittest.IsolatedAsyncioTestCase):
         await self.advance(event)
         self.assertNotIn(event["id"], {t["id"] for t in self.engine.data.pending(10)})
 
+    async def test_retry_does_not_reuse_an_unsolved_problem_revealed_in_an_old_attempt(self):
+        event = await self.event((1, 2))
+        await self.start(event)
+        first = self.engine.data.pair(event["id"], 1, 1)
+        for user in (1, 2):
+            await self.blitz.accept(10, first["blitz_id"], user)
+        original = self.activities.match(10, first["blitz_id"])["problem"]
+        alternative = {**original, "index": "H"}
+        self.cf.problems.return_value = [original, alternative]
+        await self.blitz.cancel(10, first["blitz_id"], 1)
+        await self.advance(event)
+        await self.engine.retry(10, event["id"], 99, 1, 1)
+        await self.advance(event)
+        second = self.engine.data.pair(event["id"], 1, 1)
+        for user in (1, 2):
+            await self.blitz.accept(10, second["blitz_id"], user)
+        self.assertEqual(self.activities.match(10, second["blitz_id"])["problem"]["index"], "H")
+
     async def test_recovery_retries_interrupted_tournament_cancellation(self):
         event = await self.event((1, 2))
         await self.start(event)

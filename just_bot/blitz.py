@@ -13,6 +13,7 @@ from .domain import UserError, accepted_submission, problem_key, within_window
 
 log = logging.getLogger(__name__)
 TERMINAL = {"finished", "cancelled", "timed_out", "unresolved"}
+UNSET = object()
 
 
 def parse_problem(value: str) -> tuple[int, str]:
@@ -165,7 +166,8 @@ class Blitz:
 
     async def select_problem(self, match):
         options = match["options"]
-        excluded = set()
+        excluded = {tuple(key) for key in options.get("excluded_problems", [])
+                    if isinstance(key, (list, tuple)) and len(key) == 2}
         for player in self.data.players(match["id"]):
             member = self.community.require_member(match["guild_id"], player["user_id"])
             if member["handle"].casefold() != player["handle"].casefold():
@@ -276,8 +278,8 @@ class Blitz:
             else:
                 await self._cleanup(match)
 
-    async def set_time(self, guild, match_id, minutes, *, actor=None, organizer=False):
-        if minutes is not None and not 1 <= minutes <= 180:
+    async def set_time(self, guild, match_id, minutes, *, actor=None, organizer=False, expected_ends_at=UNSET):
+        if minutes is not None and (type(minutes) is not int or not 1 <= minutes <= 180):
             raise UserError("Use 1–180 minutes, or omit minutes for unlimited time.")
         async with self.game_lock(match_id):
             match = self.data.match(guild, match_id)
@@ -285,6 +287,8 @@ class Blitz:
                 raise UserError("Only this game's managers or server organizers can change its timer.")
             if match["state"] != "active":
                 raise UserError("Only an active game's timer can be changed; edit pending invites instead.")
+            if expected_ends_at is not UNSET and match["ends_at"] != expected_ends_at:
+                raise UserError("The timer changed. Review the current match and try again.")
             options = {**match["options"], "minutes": minutes}
             deadline = match["starts_at"] + minutes * 60 if minutes is not None else None
             self.data.update_match(match_id, options=options, ends_at=deadline)

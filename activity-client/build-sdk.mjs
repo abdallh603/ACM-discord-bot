@@ -2,6 +2,7 @@ import {build} from 'esbuild';
 import {mkdir, readFile, writeFile} from 'node:fs/promises';
 import {fileURLToPath} from 'node:url';
 import path from 'node:path';
+import {createHash} from 'node:crypto';
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const output = path.resolve(here, '../just_bot/activity_web/vendor');
@@ -24,7 +25,7 @@ for (const input of Object.keys(result.metafile.inputs)) {
 const notices = [];
 for (const {folder, pkg} of packages.values()) {
   let license = '';
-  for (const name of ['LICENSE', 'LICENSE.md', 'LICENSE.txt', 'LICENCE', 'LICENSE-MIT']) {
+  for (const name of ['LICENSE', 'LICENSE.md', 'LICENSE.txt', 'LICENCE', 'LICENCE.md', 'LICENCE.txt', 'LICENSE-MIT', 'license', 'license.md', 'license.txt']) {
     try { license = await readFile(path.join(folder, name), 'utf8'); break; } catch {}
   }
   if (!license) throw new Error(`No license file found for bundled dependency ${pkg.name}; inspect it before distributing.`);
@@ -32,4 +33,9 @@ for (const {folder, pkg} of packages.values()) {
 }
 await writeFile(path.join(output, 'discord-sdk-license.txt'), notices.join('\n\n'));
 for (const file of result.outputFiles) await writeFile(file.path, file.contents);
+await writeFile(path.join(output, 'sdk-build.json'), JSON.stringify({
+  sdk_version: packages.get('@discord/embedded-app-sdk')?.pkg.version,
+  sha256: createHash('sha256').update(result.outputFiles[0].contents).digest('hex'),
+  dependencies: [...packages.values()].map(({pkg}) => ({name: pkg.name, version: pkg.version})),
+}, null, 2));
 console.log('Built the official Discord SDK for the Activity. No credentials are included in the browser bundle.');

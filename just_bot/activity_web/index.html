@@ -26,7 +26,7 @@
           <div><div class="heading-context"><span class="forge-word">RoundForge</span><span class="separator">/</span><span>Blitz room</span></div><h1 id="tournament-name">Your tournament, together.</h1><p id="tournament-meta">Connect to Discord to follow the shared bracket.</p></div>
           <div class="heading-actions"><label class="selector-label" for="tournament-select">Shared tournament</label><select id="tournament-select" aria-label="Shared tournament"><option value="">Waiting for the host</option></select><span id="tournament-state" class="state-tag">Connecting</span></div>
         </section>
-        <div id="preview-tools" class="preview-tools" hidden><span>Try a view</span><button data-scenario="registration">Registration</button><button data-scenario="running" class="selected">In progress</button><button data-scenario="finished">Finished</button><span class="preview-note">This local preview never changes real games.</span></div>
+        <div id="preview-tools" class="preview-tools" hidden><span>Try a view</span><button data-scenario="registration">Registration</button><button data-scenario="running" class="selected">In progress</button><button data-scenario="blocked">Needs a decision</button><button data-scenario="finished">Finished</button><span class="preview-note">This local preview never changes real games.</span></div>
         <div class="stage">
           <section class="bracket-pane" aria-label="Tournament bracket">
             <div class="pane-heading"><div><h2 id="bracket-title">The bracket</h2><p id="bracket-subtitle">Every match leads somewhere.</p></div><div class="legend"><span><i class="dot won"></i>Advanced</span><span><i class="dot live"></i>Live</span><span><i class="dot waiting"></i>Waiting</span></div></div>
@@ -40,7 +40,9 @@
     </div>
   </div>
   <div id="toast" class="toast" role="status" hidden></div>
-  <dialog id="confirm-dialog"><h2 id="confirm-title">Cancel this tournament?</h2><p>Its Blitz games will stop and the bot will restore the voice changes it owns.</p><div class="dialog-actions"><button class="quiet" id="confirm-no">Keep playing</button><button class="danger" id="confirm-yes">Cancel tournament</button></div></dialog>
+  <dialog id="confirm-dialog"><h2 id="confirm-title">Confirm change</h2><p id="confirm-body"></p><div class="dialog-actions"><button class="quiet" id="confirm-no">Go back</button><button class="danger" id="confirm-yes">Confirm</button></div></dialog>
+  <dialog id="timer-dialog"><form id="timer-form"><h2>Change match timer</h2><p>The limit is measured from the original start, not from now. A past deadline ends play immediately.</p><label class="form-label" for="timer-minutes">Total minutes from the start</label><input id="timer-minutes" type="number" min="1" max="180" step="1" required><label class="checkbox-label"><input id="timer-unlimited" type="checkbox"> Unlimited time</label><div class="dialog-actions"><button type="button" class="quiet" id="timer-close">Go back</button><button type="submit" class="primary">Apply timer</button></div></form></dialog>
+  <dialog id="winner-dialog"><form id="winner-form"><h2>Choose who advances</h2><p>This records a manager decision for a blocked match. It does not claim a verified Codeforces result.</p><label class="form-label" for="winner-select">Advancing player</label><select id="winner-select" required><option value="">Choose a player</option></select><div class="dialog-actions"><button type="button" class="quiet" id="winner-close">Go back</button><button type="submit" class="primary">Review decision</button></div></form></dialog>
   <script type="module" src="/app.js"></script>
 </body>
 </html>

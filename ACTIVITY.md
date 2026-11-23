@@ -21,12 +21,25 @@ No Discord account, secret, SDK build, bot login, or real database is needed for
 
 Open **http://127.0.0.1:8080**. Use the preview switches for Registration, In progress,
 and Finished. Click **Accept & get ready** to test the ten-second countdown and problem reveal.
+Use **Needs a decision** to try a retry or manual advancement. Open **Manage this match** on
+an active pairing to change its timer or stop that match.
 Select any match to inspect it; **My match** in the left rail takes you back to your pairing.
 The preview uses fictional players and never changes real games. It binds only to loopback,
 does not load `.env`, and is a separate process from the production bot. Stop it with Ctrl+C
 before using the same port for the real Activity. It is not the server to map into Discord.
 
 ## Build the Discord SDK
+
+On Windows, the guided setup builds the pinned SDK, then asks for the application ID and a
+hidden OAuth client secret locally:
+
+```powershell
+.\setup-activity.ps1
+```
+
+If your PowerShell policy blocks local scripts, use the individual npm commands below and then
+run `.\.venv\Scripts\python.exe -m just_bot.activity_setup --configure` directly. You do not
+need to change your system execution policy. The setup preserves the existing bot token.
 
 The review preview uses browser-native JavaScript. The real Discord client also needs a locally
 bundled official Embedded App SDK. Use Node.js 22+ and an internet-enabled terminal:
@@ -44,10 +57,13 @@ credentials. Keep the generated `activity-client/package-lock.json` with your so
 repeatable installs, and use `npm ci` once the lockfile exists. The generated vendor folder
 and `node_modules` are ignored by Git; build the bundle before packaging or creating a Docker image.
 The build retains notices for bundled dependencies and checks for their license files.
+It also writes `sdk-build.json` with the resolved SDK version and bundle checksum. Startup
+checks that manifest before syncing commands or enabling the Activity server.
 
-**Environment limitation for this revision:** outbound npm downloads were blocked in the Codex
-workspace. The local preview, backend, and browser flows were tested; an actual SDK bundle
-and a live Discord launch were not built/tested here. No custom replacement RPC SDK is used.
+The SDK is pinned to version 2.5.0. An optional Docker build below builds it in its own Node stage,
+and the source CI includes an SDK build check. **Environment limitation:** outbound npm downloads
+remain blocked in the Codex workspace. The local preview, backend, and browser flows were tested;
+neither a real SDK build nor a live Discord launch was verified here. No replacement RPC SDK is used.
 
 ## Configure Discord and HTTPS
 
@@ -83,15 +99,17 @@ Do not publish a raw bot database or map the preview server into a live app.
 
 ### Docker
 
-Build the SDK on the host first, configure the local `.env`, then:
+Configure the local `.env` with the application ID, OAuth client secret, and bot token, then:
 
 ```sh
 docker compose -f compose.yaml -f compose.activity.yaml up --build -d
 ```
 
 The override listens inside the container but publishes the port only on the host's loopback
-interface. Put an HTTPS reverse proxy/tunnel in front of it. This guide does not deploy a public
-host or change your Developer Portal settings automatically.
+interface. `Dockerfile.activity` downloads and builds the SDK in a Node build stage, so this
+deployment does not require a host-side npm build. The ordinary `Dockerfile`/base Compose flow
+remains available for the bot without the Activity. Put an HTTPS reverse proxy/tunnel in front
+of it. This guide does not deploy a public host or change your Developer Portal settings automatically.
 
 ## Open it with friends
 
@@ -116,6 +134,44 @@ If voice movement is enabled, use the selected game voice room. With no explicit
 players join the same room before using Ready in the Activity, keeping the game from moving a
 player out of the shared session. Regular bot Accept buttons retain their existing behavior.
 Audio remains Discord's responsibility; the Activity does not capture microphone or camera media.
+
+## Manager controls inside the Activity
+
+![Activity manager controls with fictional players](docs/activity-manager-preview.png)
+
+Select a pairing, then open **Manage this match** in the match desk. Only the host, assigned
+manager, or server organizer can use these controls; the server rechecks their permissions.
+
+- **Retry match** appears for a blocked pairing. It creates a fresh invitation, with fresh player
+  acceptance; a previous attempt's acceptances are not reused.
+- **Choose winner** appears for a blocked pairing. Select one of its actual players, then confirm
+  the advancement. The bracket records a manager decision instead of claiming a verified solve.
+- **Change timer** appears on active matches. Enter total minutes from the original start or
+  select unlimited time. Applying an already elapsed deadline asks for confirmation and releases
+  the bot's voice effects while verification settles. It does not add minutes to the current clock.
+- **Stop this match** stops only the selected duel, restores bot-owned voice effects, and makes
+  the pairing available for retry or manual resolution. It has a separate confirmation from
+  cancelling the whole tournament.
+
+Old dialogs cannot silently modify a new match attempt or overwrite a changed timer: the API
+compares the reviewed match ID/deadline again inside the engine lock. The selected match's actual
+timer is shown in its rules, even when it differs from the tournament's default duration.
+
+## Check live readiness
+
+These checks report missing pieces without printing credential values:
+
+```powershell
+.\.venv\Scripts\python.exe -m just_bot.activity_setup
+.\.venv\Scripts\python.exe -m just_bot.activity_setup --online --public-url https://your-host.example
+```
+
+Use `--json` for a machine-readable report. Local checks verify the SDK bundle/checksum/notices,
+credential presence, port, and enable flag. Online checks verify the bot/application ID match,
+Activities flag, real HTTPS config, unauthenticated API denial, and the hosted SDK checksum.
+They do not certify the OAuth client secret or the URL Mapping: test an actual Discord sign-in
+and a two-player match after configuring those. A second real Discord member/tester is needed
+for the multiplayer check. No account settings or hosting resources are changed by the checker.
 
 ## Access and data boundaries
 

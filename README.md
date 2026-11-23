@@ -24,6 +24,7 @@ daily challenges, training tracks, upsolving goals, and multiplayer Blitz.
 - Live bracket images with player/avatar cards, match states, advancing winners, and the champion.
 - Discord-username ~ Codeforces-handle profile cards and original tournament branding artwork.
 - Optional Discord voice Activity with a shared interactive bracket, ready checks, countdowns, and match desk.
+- Activity manager controls for retries, explicit winner decisions, timer edits, and stopping one match.
 - Reuse existing text/voice channels; restore only voice flags the bot applied.
 - SQLite persistence and recovery, Docker, and a credential-free automated test suite.
 
@@ -32,6 +33,8 @@ daily challenges, training tracks, upsolving goals, and multiplayer Blitz.
 Review the interactive Activity locally with `python -m just_bot.activity_server --preview`, then
 open **http://127.0.0.1:8080**. It uses fictional players and no Discord credentials. Live Discord
 activation requires the SDK build, OAuth settings, and HTTPS URL Mapping in [ACTIVITY.md](ACTIVITY.md).
+`setup-activity.ps1` prepares the SDK and local OAuth settings; `python -m just_bot.activity_setup`
+checks readiness without printing secrets.
 
 RoundForge is inspired by [PSUT TLE](https://github.com/PSUT-ACM-Student-Chapter/psut-discord-tle)
 and the TLE project. It is a fresh implementation with a smaller feature set, not an official

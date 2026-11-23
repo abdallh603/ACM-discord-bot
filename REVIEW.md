@@ -185,3 +185,37 @@ npm access was blocked, so the official SDK dependency was not downloaded/bundle
 the production server intentionally refuses to start without that build. `ACTIVITY.md` documents
 the build, local OAuth client-secret setup, HTTPS mapping, and deployment. No public host, Developer
 Portal settings, actual Discord messages, or GitHub publication were changed by this task.
+
+## Version 0.8.0 manager controls and setup checks
+
+Added Activity controls for retry, manual advancement, changing an active timer/unlimited mode,
+and stopping one duel. Controls are limited to the tournament host/manager or server organizer;
+backend authorization is refreshed, pair/game ownership is checked, and manual winners must be
+actual pairing members. Retry/resolve compare the reviewed attempt ID inside the tournament lock.
+Timer changes compare the reviewed deadline inside the game lock, reject booleans/invalid ranges,
+and expose actual per-game duration in snapshots. Confirmation dialogs explain manual decisions,
+elapsed deadlines, and single-match versus whole-tournament cancellation. Existing slash commands
+retain compatibility. The preview has matching examples and a Needs a decision scenario.
+
+Added a credential-safe setup CLI, a Windows setup/build launcher, SDK build manifests/checksums,
+and read-only local/online readiness checks. Configuration prompts for the OAuth secret through
+getpass and preserves existing .env values. Reports never include secret values. Activity startup
+checks the SDK artifact before syncing commands. Online diagnostics check application ownership,
+the embedded flag, real HTTPS mode, unauthenticated denial, and served bundle consistency; live
+OAuth/multiplayer verification remains explicitly manual.
+
+Validation: **216 Python tests and 3 frontend model tests passed**. Headless browser flows passed
+retry, manual winner confirmation, timed/unlimited changes, and stopping a duel in addition to
+the existing desktop/mobile and player workflows. Setup tests cover checksum tampering, secret
+redaction, .env preservation, and HTTPS origin validation. No live SDK build or Discord session
+was claimed: npm access is still blocked, OAuth application ID/secret are absent locally, and the
+public HTTPS host and Developer Portal mapping require operator setup. No credentials, real game
+records, public host, or external account settings were modified during this task.
+
+Retries now exclude problems revealed in this pairing's earlier attempts, including cancelled
+attempts without accepted submissions; the exclusion persists with each new Blitz record.
+
+The optional Activity Dockerfile now builds the pinned official SDK in a separate Node stage;
+the normal bot image is unchanged. A source CI job also checks the SDK build when the user
+publishes the repository. The Compose override validated locally. Neither the Docker image
+nor the remote CI job was built/run in this restricted environment.

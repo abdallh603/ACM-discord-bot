@@ -126,6 +126,11 @@ class RoundForgeBot(discord.Client):
         install_activity_launch(self)
 
     async def setup_hook(self):
+        if self.settings.activity_enabled:
+            from .activity_setup import sdk_status
+            ready, message = sdk_status()
+            if not ready:
+                raise ValueError(message)
         from .blitz_views import restore_panels
         restore_panels(self)
         restore_tournaments(self)

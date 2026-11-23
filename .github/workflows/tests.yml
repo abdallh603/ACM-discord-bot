@@ -3,6 +3,18 @@ on: [push, pull_request]
 permissions:
   contents: read
 jobs:
+  activity-sdk:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - run: if [ -f package-lock.json ]; then npm ci --no-audit --no-fund; else npm install --no-audit --no-fund; fi
+        working-directory: activity-client
+      - run: npm run build:sdk
+        working-directory: activity-client
+      - run: node --check just_bot/activity_web/vendor/discord-sdk.js
   test:
     runs-on: ubuntu-latest
     strategy:

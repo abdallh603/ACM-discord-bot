@@ -171,6 +171,99 @@ class ActivityTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(response.status, 401)
         self.assertEqual(self.engine.data.get(10, self.event["id"])["state"], "registration")
 
+    async def test_participants_cannot_use_manager_controls(self):
+        await self.select()
+        mid = await self.start_event()
+        for action in ("retry_match", "resolve_match", "set_time", "cancel_match"):
+            token = await self.login(1)
+            response = await self.action(token, action=action, tournament_id=self.event["id"], match_id=mid,
+                round_no=1, position=1, expected_match_id=mid, winner_id="1", minutes=None, expected_ends_at=None)
+            self.assertEqual(response.status, 403, await response.text())
+        self.assertEqual(self.activities.match(10, mid)["state"], "pending")
+
+    async def test_retry_uses_a_fresh_attempt_and_rejects_stale_match_ids(self):
+        await self.select()
+        mid = await self.start_event()
+        await self.blitz.cancel(10, mid, 1)
+        await self.engine.advance(10, self.event["id"])
+        token = await self.login(99)
+        response = await self.action(token, action="retry_match", tournament_id=self.event["id"],
+                                     round_no=1, position=1, expected_match_id="obsolete")
+        self.assertEqual(response.status, 400)
+        token = await self.login(99)
+        response = await self.action(token, action="retry_match", tournament_id=self.event["id"],
+                                     round_no=1, position=1, expected_match_id=mid)
+        self.assertEqual(response.status, 200, await response.text())
+        pair = self.engine.data.pair(self.event["id"], 1, 1)
+        self.assertNotEqual(pair["blitz_id"], mid)
+        self.assertTrue(all(p["accepted_revision"] == 0 for p in self.activities.players(pair["blitz_id"])))
+
+    async def test_manual_advancement_is_explicit_and_limited_to_pair_players(self):
+        await self.select()
+        mid = await self.start_event()
+        await self.blitz.cancel(10, mid, 1)
+        await self.engine.advance(10, self.event["id"])
+        token = await self.login(99)
+        response = await self.action(token, action="resolve_match", tournament_id=self.event["id"],
+                                     round_no=1, position=1, expected_match_id=mid, winner_id="3")
+        self.assertEqual(response.status, 400)
+        token = await self.login(99)
+        response = await self.action(token, action="resolve_match", tournament_id=self.event["id"],
+                                     round_no=1, position=1, expected_match_id=mid, winner_id="2")
+        self.assertEqual(response.status, 200, await response.text())
+        pair = self.engine.data.pair(self.event["id"], 1, 1)
+        self.assertEqual(pair["winner_id"], 2)
+        self.assertIn("Manager decision", pair["note"])
+
+    async def test_timer_changes_support_unlimited_and_guard_concurrent_changes(self):
+        await self.select()
+        mid = await self.start_event()
+        for user in (1, 2):
+            await self.blitz.accept(10, mid, user)
+        first = self.activities.match(10, mid)
+        token = await self.login(99)
+        response = await self.action(token, action="set_time", tournament_id=self.event["id"], match_id=mid,
+                                     minutes=10, expected_ends_at=first["ends_at"])
+        self.assertEqual(response.status, 200, await response.text())
+        timed = self.activities.match(10, mid)
+        self.assertEqual(timed["ends_at"], timed["starts_at"] + 600)
+        self.assertEqual((await response.json())["games"][mid]["minutes"], 10)
+        token = await self.login(99)
+        response = await self.action(token, action="set_time", tournament_id=self.event["id"], match_id=mid,
+                                     minutes=15, expected_ends_at=first["ends_at"])
+        self.assertEqual(response.status, 400)
+        self.assertEqual(self.activities.match(10, mid)["ends_at"], timed["ends_at"])
+        token = await self.login(99)
+        response = await self.action(token, action="set_time", tournament_id=self.event["id"], match_id=mid,
+                                     minutes=None, expected_ends_at=timed["ends_at"])
+        self.assertEqual(response.status, 200, await response.text())
+        self.assertIsNone(self.activities.match(10, mid)["ends_at"])
+        self.assertIsNone((await response.json())["games"][mid]["minutes"])
+
+    async def test_stopping_one_match_releases_its_voice_effects(self):
+        await self.select()
+        mid = await self.start_event()
+        for user in (1, 2):
+            await self.blitz.accept(10, mid, user)
+        self.assertEqual(self.voice.muted, {1, 2})
+        token = await self.login(99)
+        response = await self.action(token, action="cancel_match", tournament_id=self.event["id"], match_id=mid)
+        self.assertEqual(response.status, 200)
+        self.assertFalse(self.voice.muted)
+        self.assertEqual(self.engine.data.get(10, self.event["id"])["state"], "running")
+        self.assertEqual(self.engine.data.pair(self.event["id"], 1, 1)["state"], "blocked")
+
+    async def test_manager_control_payloads_require_current_and_typed_values(self):
+        await self.select()
+        mid = await self.start_event()
+        for payload in ({"action": "set_time", "minutes": True, "expected_ends_at": None},
+                        {"action": "set_time", "minutes": 10},
+                        {"action": "retry_match", "round_no": True, "position": 1, "expected_match_id": mid},
+                        {"action": "resolve_match", "round_no": 1, "position": 1, "winner_id": "1"}):
+            token = await self.login(99)
+            response = await self.action(token, tournament_id=self.event["id"], match_id=mid, **payload)
+            self.assertEqual(response.status, 400, await response.text())
+
     async def test_session_expiry_and_cross_origin_posts_are_rejected(self):
         token = await self.login()
         self.service.sessions[token].expires = time.monotonic() - 1
@@ -198,6 +291,20 @@ class ActivityTests(unittest.IsolatedAsyncioTestCase):
 
 
 class PreviewTests(unittest.IsolatedAsyncioTestCase):
+    async def test_preview_has_retry_manual_decision_and_timer_controls(self):
+        demo = DemoActivity()
+        request = SimpleNamespace(headers={"Authorization": "Bearer preview-session"})
+        await demo.action(request, {"action": "demo_scenario", "scenario": "blocked"})
+        await demo.action(request, {"action": "retry_match", "round_no": 2, "position": 1, "expected_match_id": "semi1"})
+        self.assertNotEqual(demo.value["pairs"][4]["blitz_id"], "semi1")
+        await demo.action(request, {"action": "demo_scenario", "scenario": "blocked"})
+        await demo.action(request, {"action": "resolve_match", "round_no": 2, "position": 1, "expected_match_id": "semi1", "winner_id": "4"})
+        self.assertEqual(demo.value["pairs"][4]["winner_id"], "4")
+        self.assertIn("Manager decision", demo.value["pairs"][4]["note"])
+        game = demo.value["games"]["semi2"]
+        await demo.action(request, {"action": "set_time", "match_id": "semi2", "minutes": None, "expected_ends_at": game["ends_at"]})
+        self.assertIsNone(game["ends_at"])
+        self.assertIsNone(game["minutes"])
     async def test_preview_countdown_reveals_only_after_the_deadline(self):
         demo = DemoActivity()
         request = SimpleNamespace(headers={"Authorization": "Bearer preview-session"})

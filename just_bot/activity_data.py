@@ -122,6 +122,7 @@ class ActivityData:
             result["games"][match["id"]] = {key: match[key] for key in ("id", "state", "starts_at", "ends_at", "outcome")}
             game = result["games"][match["id"]]
             game.update(revision=match["options"]["revision"], countdown_ends_at=match["options"].get("countdown_ends_at"),
+                        minutes=match["options"]["minutes"],
                         winner_id=str(match["winner_id"]) if match["winner_id"] else None,
                         players=[{"id": str(p["user_id"]), "ready": p["accepted_revision"] == match["options"]["revision"],
                                   "solved_at": p["solved_at"]} for p in self.bot.activities.players(match["id"])])

@@ -209,6 +209,38 @@ class ActivityService:
                 await self.bot.tournaments.start(guild, tid, actor, organizer=organizer)
             elif action == "cancel_tournament":
                 await self.bot.tournaments.cancel(guild, tid, actor, organizer=organizer)
+            elif action in {"retry_match", "resolve_match", "set_time", "cancel_match"}:
+                if choices[tid]["state"] != "running" or not self.data.can_manage(choices[tid], member):
+                    raise ActivityError("Only this tournament's managers or a server organizer can use these controls.")
+                if action in {"retry_match", "resolve_match"}:
+                    r, position = body.get("round_no"), body.get("position")
+                    if type(r) is not int or type(position) is not int or not 1 <= r <= 5 or not 1 <= position <= 16:
+                        raise ActivityError("Select a valid bracket pairing.", 400)
+                    if "expected_match_id" not in body:
+                        raise ActivityError("Review the current match attempt first.", 400)
+                    options = {"organizer": organizer, "expected_match_id": body["expected_match_id"]}
+                    if action == "retry_match":
+                        await self.bot.tournaments.retry(guild, tid, actor, r, position, **options)
+                    else:
+                        winner = body.get("winner_id")
+                        if not isinstance(winner, str) or not winner.isascii() or not winner.isdigit() or len(winner) > 20:
+                            raise ActivityError("Choose one of this pairing's players.", 400)
+                        await self.bot.tournaments.resolve(guild, tid, actor, r, position, int(winner), **options)
+                else:
+                    mid = body.get("match_id")
+                    if mid not in {p["blitz_id"] for p in self.bot.tournaments.data.pairs(tid) if p["blitz_id"]}:
+                        raise ActivityError("This match is not part of the shared tournament.")
+                    if action == "cancel_match":
+                        await self.bot.blitz.cancel(guild, mid, actor, organizer=organizer)
+                        await self.bot.tournaments.advance(guild, tid)
+                    else:
+                        minutes = body.get("minutes")
+                        if "minutes" not in body or (minutes is not None and (type(minutes) is not int or not 1 <= minutes <= 180)):
+                            raise ActivityError("Use 1–180 minutes, or select unlimited time.", 400)
+                        deadline = body.get("expected_ends_at")
+                        if "expected_ends_at" not in body or (deadline is not None and type(deadline) is not int):
+                            raise ActivityError("Review the current timer before changing it.", 400)
+                        await self.bot.blitz.set_time(guild, mid, minutes, actor=actor, organizer=organizer, expected_ends_at=deadline)
             elif action in {"ready", "decline", "check"}:
                 if choices[tid]["state"] != "running":
                     raise ActivityError("This tournament is no longer running.", 400)
@@ -339,8 +371,10 @@ def create_app(service):
 
 
 async def start_server(bot):
-    if not (STATIC / "vendor" / "discord-sdk.js").is_file():
-        raise ValueError("Build the Discord Activity SDK first: cd activity-client; npm install; npm run build:sdk")
+    from .activity_setup import sdk_status
+    ready, message = sdk_status()
+    if not ready:
+        raise ValueError(message)
     service = ActivityService(bot)
     runner = web.AppRunner(create_app(service), access_log=None)
     await runner.setup()
