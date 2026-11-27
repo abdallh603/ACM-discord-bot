@@ -5,7 +5,7 @@ from unittest.mock import AsyncMock, patch
 from PIL import Image
 
 from just_bot.core.images import MAX_AVATAR_BYTES
-from just_bot.profile_card import ProfileCards, render_card
+from extensions.profile_cards.render import ProfileCards, render_card
 from tests.support import avatar
 
 
@@ -27,7 +27,7 @@ class ProfileCardTests(unittest.IsolatedAsyncioTestCase):
         asset.with_size = lambda size: asset
         asset.with_static_format = lambda format: asset
         member = SimpleNamespace(name="discord_name", display_avatar=asset)
-        with patch("just_bot.profile_card.fetch_avatar", return_value=avatar("blue")) as fetch:
+        with patch("extensions.profile_cards.render.fetch_avatar", return_value=avatar("blue")) as fetch:
             result = await ProfileCards().build(member, {"handle": "cf_handle", "rating": 1700, "avatar": "https://userpic.codeforces.org/a.png"})
         self.assertEqual(result.filename, "roundforge-profile.png")
         with Image.open(result.fp) as image:

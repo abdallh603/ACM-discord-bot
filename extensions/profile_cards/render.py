@@ -8,8 +8,7 @@ import logging
 import discord
 from PIL import Image, ImageDraw
 
-from .core.domain import rank_for
-from .core.images import draw_avatar, fetch_avatar, fitted_text, font
+from just_bot.core.api import draw_avatar, fetch_avatar, fitted_text, font, rank_for
 
 log = logging.getLogger(__name__)
 

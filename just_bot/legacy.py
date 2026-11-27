@@ -28,30 +28,12 @@ async def defer(interaction: discord.Interaction, *, private: bool = False):
 
 def install_legacy(bot):
     ext = ExtensionContext(bot, Manifest("legacy", "0", "Features not yet moved", None, __name__), bot.extensions)
-    install_profile_cards(ext)
     install_practice(ext)
     install_rank(ext)
     install_daily(ext)
     install_blitz(ext)
     install_tournament(ext)
     install_activity(ext)
-
-
-# -- profile cards -----------------------------------------------------------------------
-def install_profile_cards(ext):
-    from .profile_card import ProfileCards
-    bot = ext.bot
-    bot.profile_cards = ProfileCards()
-
-    async def profile_image(interaction, member, profile):
-        if not interaction.app_permissions.attach_files:
-            return None
-        try:
-            return await bot.profile_cards.build(member, profile)
-        except (TimeoutError, OSError, ValueError):
-            return None
-
-    ext.hook("profile_image", profile_image)
 
 
 # -- practice ----------------------------------------------------------------------------

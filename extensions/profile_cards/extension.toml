@@ -1,0 +1,6 @@
+name = "profile_cards"
+version = "1.0.0"
+description = "Attach a Discord avatar ~ Codeforces avatar card image to /handle show"
+requires = []
+permissions = ["attach_files"]
+default_enabled = true
