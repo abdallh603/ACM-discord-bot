@@ -1,7 +1,7 @@
 """Shared menu choices and voice-control settings."""
 import re
 
-from .core.domain import UserError
+from just_bot.core.api import UserError
 
 VOICE_LABELS = {"none": "No voice effects", "mute": "Mute", "deafen": "Deafen", "both": "Mute and deafen"}
 

@@ -8,9 +8,8 @@ from typing import Literal
 import discord
 from discord import app_commands
 
-from .blitz_options import VOICE_LABELS, duration_label, voice_mode
+from extensions.blitz.options import VOICE_LABELS, duration_label, voice_mode  # TRANSITIONAL
 from .core.options import TOPICS
-from .blitz_views import send_invite
 from .core.options import rating_choices
 from .core.domain import UserError
 from .core.presentation import embed, safe
@@ -140,7 +139,7 @@ class DiscordTournaments:
         room = guild.get_channel(tournament["channel_id"]) if guild else None
         if room is None:
             raise UserError("Tournament channel is unavailable. Restore access, or cancel the tournament.")
-        await send_invite(self.bot, match, room.send, [p["user_id"] for p in self.bot.activities.players(match["id"])])
+        await self.bot.blitz_runtime.send_invite(match, room.send, [p["user_id"] for p in self.bot.activities.players(match["id"])])
 
     async def update(self, tournament):
         data = self.bot.tournaments.data

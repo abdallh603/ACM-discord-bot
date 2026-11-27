@@ -1,13 +1,12 @@
 import unittest
 from unittest.mock import AsyncMock
 
-from just_bot.activities_store import Activities
-from just_bot.blitz import Blitz
+from extensions.blitz.engine import Blitz
 from just_bot.core.domain import UserError
 from just_bot.core.service import Community
 from just_bot.core.storage import Store
 from just_bot.tournament import Tournaments, seed_order
-from tests.test_blitz import FakeVoice
+from extensions.blitz.tests.support import FakeVoice, blitz_store
 from tests.support import problem, submission
 
 
@@ -32,7 +31,7 @@ class TournamentPlatform:
 class TournamentTests(unittest.IsolatedAsyncioTestCase):
     async def asyncSetUp(self):
         self.store = Store(":memory:")
-        self.activities = Activities(self.store)
+        self.activities = blitz_store(self.store)
         for guild in (10, 20):
             for user in range(1, 34):
                 handle = f"player{user}"
@@ -53,6 +52,7 @@ class TournamentTests(unittest.IsolatedAsyncioTestCase):
         self.blitz = Blitz(self.community, self.activities, self.voice)
         self.platform = TournamentPlatform(self.activities)
         self.engine = Tournaments(self.community, self.blitz, self.platform)
+        self.activities.reservation_checks.append(self.engine.check_reservation)
 
     async def asyncTearDown(self):
         await self.engine.close()

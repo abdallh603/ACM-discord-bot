@@ -4,7 +4,7 @@ from __future__ import annotations
 import base64
 import time
 
-from .blitz_options import voice_mode
+from extensions.blitz.options import voice_mode  # TRANSITIONAL
 from .core.domain import UserError
 
 ACTIVITY_SCHEMA = """

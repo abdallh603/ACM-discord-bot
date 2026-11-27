@@ -2,17 +2,17 @@ import tempfile
 import unittest
 from pathlib import Path
 
-from just_bot.activities_store import Activities
-from just_bot.blitz import validate_options
+from extensions.blitz.engine import validate_options
+from extensions.blitz.tests.support import blitz_store
 from just_bot.core.storage import Store
 
 
-class ActivityPersistenceTests(unittest.TestCase):
+class BlitzPersistenceTests(unittest.TestCase):
     def test_games_and_mute_ownership_survive_reopening_database(self):
         with tempfile.TemporaryDirectory() as temp:
             path = Path(temp) / "bot.sqlite3"
             store = Store(path)
-            data = Activities(store)
+            data = blitz_store(store)
             first = data.create_match(10, 1, validate_options({}), [(1, "one"), (2, "two"), (3, "three")])
             second = data.create_match(10, 4, validate_options({}), [(4, "four"), (5, "five")])
             data.update_match(first["id"], state="active", starts_at=100, ends_at=1000, voice_id=123)
@@ -20,7 +20,7 @@ class ActivityPersistenceTests(unittest.TestCase):
             store.close()
             reopened = Store(path)
             try:
-                data = Activities(reopened)
+                data = blitz_store(reopened)
                 self.assertEqual(data.match(10, first["id"])["ends_at"], 1000)
                 self.assertEqual(data.match(10, second["id"])["state"], "pending")
                 player = data.players(first["id"])[1]

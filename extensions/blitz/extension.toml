@@ -1,0 +1,8 @@
+name = "blitz"
+version = "1.0.0"
+description = "Multiplayer Codeforces races with lobbies, countdowns, room reuse, and owned voice effects"
+requires = []
+permissions = ["view_channel", "send_messages", "embed_links", "connect", "move_members",
+               "mute_members", "deafen_members", "manage_channels"]
+intents = ["voice_states"]
+default_enabled = true

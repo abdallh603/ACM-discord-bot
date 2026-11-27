@@ -5,10 +5,10 @@ import logging
 
 import discord
 
-from .blitz_options import VOICE_LABELS, duration_label, page_items
-from .core.options import RATINGS, TOPICS
-from .core.domain import UserError
-from .core.presentation import embed, safe
+from just_bot.core.api import RATINGS, TOPICS, UserError, embed, safe
+
+from .options import VOICE_LABELS, duration_label, page_items
+from .views import blitz_embed, send_invite
 
 log = logging.getLogger(__name__)
 TOPIC_CHOICES = [("any", "Any topic"), ("random", "Random topic")] + [(t, t) for t in TOPICS]
@@ -69,9 +69,9 @@ class BlitzTime(discord.ui.Modal, title="Blitz time limit"):
 
 
 class BlitzMenu(discord.ui.View):
-    def __init__(self, bot, owner_id, guild_id, opponents, options):
+    def __init__(self, blitz, owner_id, guild_id, opponents, options):
         super().__init__(timeout=600)
-        self.bot = bot
+        self.blitz = blitz
         self.owner_id = owner_id
         self.guild_id = guild_id
         self.opponents = opponents
@@ -206,22 +206,20 @@ class BlitzMenu(discord.ui.View):
             try:
                 options = self.match_options()
                 if self.opponents:
-                    create = self.bot.blitz.host if options.get("hosted") else self.bot.blitz.challenge
+                    create = self.blitz.engine.host if options.get("hosted") else self.blitz.engine.challenge
                     match = await create(self.guild_id, self.owner_id, self.opponents, options)
                 else:
-                    match = await self.bot.blitz.solo(self.guild_id, self.owner_id, options)
+                    match = await self.blitz.engine.solo(self.guild_id, self.owner_id, options)
             except (UserError, discord.HTTPException) as exc:
                 self.started = False
                 self.rebuild()
                 await interaction.edit_original_response(embed=self.summary(), view=self)
                 await interaction.followup.send(f"Could not start blitz: {safe(exc, 1000)}", ephemeral=True)
                 return
-            from .activity_commands import blitz_embed
-            await interaction.edit_original_response(content="Blitz setup submitted.", embed=blitz_embed(self.bot, match), view=None)
+            await interaction.edit_original_response(content="Blitz setup submitted.", embed=blitz_embed(self.blitz, match), view=None)
             self.stop()
             if self.opponents:
-                from .blitz_views import send_invite
-                await send_invite(self.bot, match, interaction.channel.send, self.opponents)
+                await send_invite(self.blitz, match, interaction.channel.send, self.opponents)
 
     async def on_timeout(self):
         self.started = True
@@ -244,9 +242,9 @@ class BlitzMenu(discord.ui.View):
 
 class BlitzPlayers(discord.ui.View):
     """The no-arguments entry point: pick people, then configure the game."""
-    def __init__(self, bot, owner_id, guild_id, options):
+    def __init__(self, blitz, owner_id, guild_id, options):
         super().__init__(timeout=600)
-        self.bot, self.owner_id, self.guild_id = bot, owner_id, guild_id
+        self.blitz, self.owner_id, self.guild_id = blitz, owner_id, guild_id
         self.options, self.message = options, None
         self.started = False
         self.lock = asyncio.Lock()
@@ -282,9 +280,9 @@ class BlitzPlayers(discord.ui.View):
                 member = await interaction.guild.fetch_member(user)
                 if member.bot:
                     raise UserError("Choose human players, not bots.")
-                self.bot.community.require_member(self.guild_id, user)
+                self.blitz.community.require_member(self.guild_id, user)
             self.started = True
-            view = BlitzMenu(self.bot, self.owner_id, self.guild_id, users, self.options)
+            view = BlitzMenu(self.blitz, self.owner_id, self.guild_id, users, self.options)
             view.message = self.message
             await interaction.edit_original_response(embed=view.summary(), view=view)
             self.stop()

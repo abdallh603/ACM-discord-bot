@@ -5,10 +5,58 @@ import logging
 
 import discord
 
-from .core.domain import UserError
-from .core.presentation import embed, safe
+from just_bot.core.api import UserError, embed, safe
+
+from .options import VOICE_LABELS, duration_label
+from .options import voice_mode as selected_voice_mode
 
 log = logging.getLogger(__name__)
+
+
+def blitz_embed(blitz, match):
+    options = match["options"]
+    revision = options["revision"]
+    players = blitz.store.players(match["id"])
+    accepted = sum(p["accepted_revision"] == revision for p in players)
+    roster = "\n".join(
+        f"{'✅' if p['accepted_revision'] == revision else '⬜'} <@{p['user_id']}> · {safe(p['handle'])}"
+        + (" · solved" if p["solved_at"] is not None else "") for p in players
+    )
+    filters = (f"Manual: {safe(options['manual'])}" if options["manual"] else
+               f"Rating: {options['rating_min'] or options['rating_max'] or 'automatic'}–"
+               f"{options['rating_max'] or options['rating_min'] or 'automatic'} · "
+               f"Topics (any match): {safe(', '.join(options.get('tags', [])) or options['tag'] or ('random topic' if options['random_topic'] else 'any'))}")
+    details = (
+        f"Game **`{match['id']}`** · **{match['state']}** · settings revision **{revision}**\n"
+        f"{duration_label(options['minutes'])} · {options['end_rule']}\n{filters}\n"
+        f"Voice: **{VOICE_LABELS[selected_voice_mode(options)]}** · move to selected voice: **{options['move_voice']}**\n\n"
+        f"Standings: **{'ON' if options.get('show_standings', True) else 'OFF'}**\n"
+        f"Host: <@{match['creator_id']}> · Manager: <@{options.get('manager_id') or match['creator_id']}>\n"
+        f"**Players ({accepted}/{len(players)} accepted)**\n{roster}\n\n"
+    )
+    if match["state"] == "pending":
+        details += ("Click **Accept & ready** below. Everyone must accept before the countdown starts.\n"
+                    f"Command alternative: `/blitz accept match_id:{match['id']} revision:{revision}`.\n"
+                    f"Invite expires <t:{match['invite_expires']}:R>. Editing resets the other players' acceptance.")
+    elif match["state"] == "starting":
+        details += "Everyone is ready! Checking permissions and choosing a fair problem…"
+    elif match["state"] == "countdown":
+        details += "**Get ready!** A 10-second countdown is running in the game text channel. The problem is hidden until GO."
+    elif match["starts_at"]:
+        deadline = f"deadline <t:{match['ends_at']}:T>" if match["ends_at"] is not None else "unlimited time"
+        details += f"Starts <t:{match['starts_at']}:T> · {deadline}.\n"
+    if match["text_id"]:
+        details += f"\nGame text channel: <#{match['text_id']}>"
+    if match["voice_id"]:
+        details += f"\nGame voice channel: <#{match['voice_id']}>"
+    if match["outcome"]:
+        details += f"\n{match['outcome']}"
+    if match["winner_id"]:
+        details += f"\nWinner: <@{match['winner_id']}>"
+    recovering = [p for p in players if p["owns_mute"] or p["owns_deaf"] or p["original_voice"] is not None]
+    if match["state"] in {"finished", "cancelled", "timed_out", "unresolved", "settling"} and recovering:
+        details += "\nVoice recovery pending: " + ", ".join(f"<@{p['user_id']}>" for p in recovering)
+    return embed("RoundForge Solo Blitz Test" if options.get("solo") else "RoundForge Multiplayer Blitz", details)
 
 
 def standings_embed(data, match):
@@ -47,9 +95,9 @@ class BlitzButton(discord.ui.Button):
 
 
 class BlitzPanel(discord.ui.View):
-    def __init__(self, bot, match, *, game=False, countdown=False):
+    def __init__(self, blitz, match, *, game=False, countdown=False):
         super().__init__(timeout=None)
-        self.bot = bot
+        self.blitz = blitz
         self.guild_id, self.match_id = match["guild_id"], match["id"]
         self.revision = match["options"]["revision"]
         if countdown:
@@ -68,36 +116,35 @@ class BlitzPanel(discord.ui.View):
         await interaction.response.defer(ephemeral=True, thinking=True)
         if interaction.guild_id != self.guild_id:
             raise UserError("This button belongs to a different server.")
-        if hasattr(self.bot, "guild_enabled") and not self.bot.guild_enabled(self.guild_id):
+        if hasattr(self.blitz, "guild_enabled") and not self.blitz.guild_enabled(self.guild_id):
             raise UserError("This server is not enabled in this bot's configuration.")
-        match = self.bot.activities.match(self.guild_id, self.match_id)
+        match = self.blitz.store.match(self.guild_id, self.match_id)
         actor = interaction.user.id
         organizer = interaction.permissions.manage_guild
-        if not self.bot.blitz.can_access(match, actor) and not organizer:
+        if not self.blitz.engine.can_access(match, actor) and not organizer:
             raise UserError("This game is for its invited players and managers.")
         if action in {"accept", "decline"}:
             if match["state"] != "pending":
                 raise UserError("This invitation has already started or closed. Use Status.")
             if self.revision != match["options"]["revision"]:
                 raise UserError("Settings changed. Use the latest invitation buttons after reviewing the settings.")
-            if actor not in {p["user_id"] for p in self.bot.activities.players(self.match_id)}:
+            if actor not in {p["user_id"] for p in self.blitz.store.players(self.match_id)}:
                 raise UserError("Only invited players can accept or decline; managers cannot accept for them.")
         if action == "accept":
-            match = await self.bot.blitz.accept(self.guild_id, self.match_id, actor, self.revision)
+            match = await self.blitz.engine.accept(self.guild_id, self.match_id, actor, self.revision)
         elif action in {"decline", "cancel"}:
-            await self.bot.blitz.cancel(self.guild_id, self.match_id, actor, organizer=organizer)
-            match = self.bot.activities.match(self.guild_id, self.match_id)
+            await self.blitz.engine.cancel(self.guild_id, self.match_id, actor, organizer=organizer)
+            match = self.blitz.store.match(self.guild_id, self.match_id)
         elif action == "check":
-            self.bot.blitz.request_check(self.guild_id, self.match_id)
+            self.blitz.engine.request_check(self.guild_id, self.match_id)
             await interaction.followup.send("Solve check queued. The game updates automatically.", ephemeral=True)
             return
         elif action == "standings":
             if not match["options"].get("show_standings", True):
                 raise UserError("Standings are disabled for this game.")
-            await interaction.followup.send(embed=standings_embed(self.bot.activities, match), ephemeral=True)
+            await interaction.followup.send(embed=standings_embed(self.blitz.store, match), ephemeral=True)
             return
-        from .activity_commands import blitz_embed
-        await interaction.followup.send(embed=blitz_embed(self.bot, match), ephemeral=True)
+        await interaction.followup.send(embed=blitz_embed(self.blitz, match), ephemeral=True)
 
     async def on_error(self, interaction, error, item):
         if not isinstance(error, UserError):
@@ -109,36 +156,32 @@ class BlitzPanel(discord.ui.View):
             await interaction.response.send_message(message, ephemeral=True)
 
 
-async def send_invite(bot, match, send, invited, *, followup=False):
-    from .activity_commands import blitz_embed
+async def send_invite(blitz, match, send, invited, *, followup=False):
     kwargs = {"wait": True} if followup else {}
     try:
         message = await send(
             content="Invited: " + " ".join(f"<@{user}>" for user in sorted(set(invited))),
-            embed=blitz_embed(bot, match), view=BlitzPanel(bot, match),
+            embed=blitz_embed(blitz, match), view=BlitzPanel(blitz, match),
             allowed_mentions=discord.AllowedMentions(users=[discord.Object(id=user) for user in set(invited)]),
             **kwargs,
         )
     except discord.HTTPException:
-        current = bot.activities.match(match["guild_id"], match["id"])
+        current = blitz.store.match(match["guild_id"], match["id"])
         if current["state"] == "pending":
-            await bot.blitz.cancel(match["guild_id"], match["id"], match["creator_id"])
+            await blitz.engine.cancel(match["guild_id"], match["id"], match["creator_id"])
         raise
-    async with bot.blitz.game_lock(match["id"]):
-        latest = bot.activities.match(match["guild_id"], match["id"])
-        bot.activities.update_match(match["id"], options={**latest["options"],
+    async with blitz.engine.game_lock(match["id"]):
+        latest = blitz.store.match(match["guild_id"], match["id"])
+        blitz.store.update_match(match["id"], options={**latest["options"],
             "lobby_channel_id": message.channel.id, "lobby_message_id": message.id})
         # An invitation can be accepted while its send request is completing.
-        await bot.blitz.notify_lobby(bot.activities.match(match["guild_id"], match["id"]))
+        await blitz.engine.notify_lobby(blitz.store.match(match["guild_id"], match["id"]))
     return message
 
 
-def restore_panels(bot):
-    rows = bot.activities.db.execute(
-        "SELECT guild_id,id FROM blitz_matches WHERE state IN ('pending','active','settling')"
-    ).fetchall()
-    for guild, mid in rows:
-        match = bot.activities.match(guild, mid)
+def restore_panels(blitz):
+    for guild, mid in blitz.store.restorable():
+        match = blitz.store.match(guild, mid)
         key = "lobby_message_id" if match["state"] == "pending" else "game_message_id"
         if message_id := match["options"].get(key):
-            bot.add_view(BlitzPanel(bot, match, game=match["state"] != "pending"), message_id=message_id)
+            blitz.add_view(BlitzPanel(blitz, match, game=match["state"] != "pending"), message_id=message_id)

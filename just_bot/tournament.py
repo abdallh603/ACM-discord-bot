@@ -9,7 +9,7 @@ import sqlite3
 import time
 import uuid
 
-from .blitz import TERMINAL, UNSET, validate_options
+from extensions.blitz.engine import TERMINAL, UNSET, validate_options  # TRANSITIONAL
 from .core.domain import UserError, problem_key
 from .tournament_store import TournamentStore
 
@@ -32,6 +32,21 @@ class Tournaments:
 
     def lock(self, tournament_id):
         return self.locks.setdefault(tournament_id, asyncio.Lock())
+
+    def check_reservation(self, guild, user, handle, options):
+        """Blitz reservation check: a tournament player may only play that tournament's games."""
+        reserved = self.data.db.execute(
+            "SELECT * FROM tournament_slots WHERE guild_id=? AND (user_id=? OR handle=?)",
+            (guild, user, handle),
+        ).fetchall()
+        tournament_id = options.get("tournament_id")
+        if reserved and (not tournament_id or any(
+            r["tournament_id"] != tournament_id or r["user_id"] != user
+            or r["handle"].casefold() != handle.casefold() for r in reserved
+        )):
+            raise UserError("A player is reserved for a tournament. Finish or leave it first.")
+        if tournament_id and not reserved:
+            raise UserError("A tournament player's verified handle or reservation changed.")
 
     @staticmethod
     def can_manage(tournament, actor, organizer=False):

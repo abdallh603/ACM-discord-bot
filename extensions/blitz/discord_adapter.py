@@ -6,23 +6,23 @@ import time
 
 import discord
 
-from .blitz import TERMINAL
-from .blitz_options import VOICE_LABELS, voice_mode
-from .blitz_rooms import choose_voice_room, owns_room
-from .blitz_views import BlitzPanel, standings_embed
-from .core.domain import UserError
-from .core.presentation import embed, problem_embed
+from just_bot.core.api import UserError, embed, problem_embed
+
+from .engine import TERMINAL
+from .options import VOICE_LABELS, voice_mode
+from .rooms import choose_voice_room, owns_room
+from .views import BlitzPanel, blitz_embed, standings_embed
 
 log = logging.getLogger(__name__)
 
 
 class DiscordBlitz:
-    def __init__(self, bot):
-        self.bot = bot
-        self.data = bot.activities
+    def __init__(self, blitz):
+        self.blitz = blitz
+        self.data = blitz.store
 
     def guild(self, match):
-        guild = self.bot.get_guild(match["guild_id"])
+        guild = self.blitz.get_guild(match["guild_id"])
         if not guild:
             raise UserError("The RoundForge Discord server is unavailable.")
         return guild
@@ -62,7 +62,7 @@ class DiscordBlitz:
         # Prefer the challenger's current room when several players are in different rooms.
         players.sort(key=lambda p: p["user_id"] != match["creator_id"])
         members = [await guild.fetch_member(p["user_id"]) for p in players]
-        managers = [await guild.fetch_member(user) for user in self.bot.blitz.managers(match)
+        managers = [await guild.fetch_member(user) for user in self.blitz.engine.managers(match)
                     if user not in {m.id for m in members}]
         text_id = match["options"].get("text_channel_id")
         text_room = guild.get_channel(text_id) if text_id else None
@@ -113,7 +113,7 @@ class DiscordBlitz:
             overwrites[member] = discord.PermissionOverwrite(
                 view_channel=True, send_messages=True, read_message_history=True, connect=True, speak=True,
             )
-        for user in self.bot.blitz.managers(match) - {m.id for m in members}:
+        for user in self.blitz.engine.managers(match) - {m.id for m in members}:
             manager = await guild.fetch_member(user)
             overwrites[manager] = discord.PermissionOverwrite(view_channel=True, send_messages=True, connect=True, speak=True)
         if room is None:
@@ -127,7 +127,7 @@ class DiscordBlitz:
         if voice is None:
             voice = await guild.create_voice_channel(
                 f"Blitz {match['id']}", overwrites=overwrites,
-                user_limit=len({*self.bot.blitz.managers(match), *(m.id for m in members)}),
+                user_limit=len({*self.blitz.engine.managers(match), *(m.id for m in members)}),
                 reason=f"Accepted blitz {match['id']}",
             )
         self.data.update_match(match["id"], voice_id=voice.id)
@@ -155,13 +155,12 @@ class DiscordBlitz:
             await member.edit(**changes, reason=f"Blitz {match['id']}; restore voice on solve/end/cancel")
 
     async def update_lobby(self, match):
-        from .activity_commands import blitz_embed
         options = match["options"]
         room = self.guild(match).get_channel(options.get("lobby_channel_id"))
         if room and options.get("lobby_message_id"):
             await room.get_partial_message(options["lobby_message_id"]).edit(
-                embed=blitz_embed(self.bot, match),
-                view=BlitzPanel(self.bot, match) if match["state"] == "pending" else None,
+                embed=blitz_embed(self.blitz, match),
+                view=BlitzPanel(self.blitz, match) if match["state"] == "pending" else None,
                 allowed_mentions=discord.AllowedMentions.none(),
             )
 
@@ -182,7 +181,7 @@ class DiscordBlitz:
                          "Use **Cancel blitz** below to stop before the reveal.")
         message = await room.send(
             content=" ".join(f"<@{user}>" for user in players), embed=notice(10),
-            view=BlitzPanel(self.bot, match, countdown=True),
+            view=BlitzPanel(self.blitz, match, countdown=True),
             allowed_mentions=discord.AllowedMentions(users=[discord.Object(id=user) for user in players]),
         )
         self.save_options(match, game_message_id=message.id, game_channel_id=room.id,
@@ -214,11 +213,11 @@ class DiscordBlitz:
         message_id = match["options"].get("game_message_id")
         if message_id:
             await room.get_partial_message(message_id).edit(
-                content=None, embed=result, view=BlitzPanel(self.bot, match, game=True),
+                content=None, embed=result, view=BlitzPanel(self.blitz, match, game=True),
                 allowed_mentions=discord.AllowedMentions.none(),
             )
         else:
-            message = await room.send(embed=result, view=BlitzPanel(self.bot, match, game=True))
+            message = await room.send(embed=result, view=BlitzPanel(self.blitz, match, game=True))
             self.save_options(match, game_message_id=message.id, game_channel_id=room.id)
 
     async def update_standings(self, match):

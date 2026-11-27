@@ -2,66 +2,18 @@ import asyncio
 import unittest
 from unittest.mock import AsyncMock, patch
 
-from just_bot.activities_store import Activities
-from just_bot.blitz import Blitz, TERMINAL, parse_problem, validate_options
+from extensions.blitz.engine import Blitz, parse_problem, validate_options
+from extensions.blitz.tests.support import FakeVoice, blitz_store
 from just_bot.core.domain import UserError
 from just_bot.core.service import Community
 from just_bot.core.storage import Store
 from tests.support import problem, submission
 
 
-class FakeVoice:
-    """Models Discord effects while persisting ownership in the real SQLite store."""
-    def __init__(self, data):
-        self.data = data
-        self.muted = set()
-        self.deafened = set()
-        self.disconnected = set()
-        self.fail_enter = None
-        self.counter = 500
-
-    async def preflight(self, match):
-        pass
-
-    async def create_rooms(self, match):
-        self.counter += 2
-        self.data.update_match(match["id"], text_id=self.counter, voice_id=self.counter + 1)
-
-    async def enter(self, match, player):
-        user = player["user_id"]
-        if self.fail_enter == user:
-            raise UserError("Missing voice permission")
-        if user not in self.disconnected and match["options"]["mute_voice"] and user not in self.muted:
-            self.data.update_player(match["id"], user, owns_mute=1)
-            self.muted.add(user)
-        if user not in self.disconnected and match["options"].get("deaf_voice") and user not in self.deafened:
-            self.data.update_player(match["id"], user, owns_deaf=1)
-            self.deafened.add(user)
-
-    async def announce_start(self, match):
-        pass
-
-    async def countdown(self, match):
-        pass
-
-    async def cleanup(self, match):
-        release_all = match["state"] in TERMINAL or match["state"] == "settling"
-        for player in self.data.players(match["id"]):
-            user = player["user_id"]
-            if player["owns_mute"] and user not in self.disconnected and (release_all or player["solved_at"] is not None):
-                self.muted.discard(user)
-                self.data.update_player(match["id"], user, owns_mute=0)
-            if player["owns_deaf"] and user not in self.disconnected and (release_all or player["solved_at"] is not None):
-                self.deafened.discard(user)
-                self.data.update_player(match["id"], user, owns_deaf=0)
-        if match["state"] in TERMINAL:
-            self.data.update_match(match["id"], announced=1)
-
-
 class BlitzTests(unittest.IsolatedAsyncioTestCase):
     async def asyncSetUp(self):
         self.store = Store(":memory:")
-        self.data = Activities(self.store)
+        self.data = blitz_store(self.store)
         for user in range(1, 10):
             handle = f"player{user}"
             self.store.start_link(10, user, handle, "nonce", 9999999999)
@@ -112,7 +64,7 @@ class BlitzTests(unittest.IsolatedAsyncioTestCase):
 
     async def test_solo_timeout_releases_the_player_without_a_solve(self):
         match = await self.blitz.solo(10, 1, {"minutes": 1})
-        with patch("just_bot.blitz.time.time", return_value=match["ends_at"] + 1):
+        with patch("extensions.blitz.engine.time.time", return_value=match["ends_at"] + 1):
             await self.blitz.tick(10)
         self.assertFalse(self.voice.muted)
         self.assertEqual(self.data.match(10, match["id"])["state"], "settling")
@@ -138,7 +90,7 @@ class BlitzTests(unittest.IsolatedAsyncioTestCase):
         task = asyncio.create_task(self.blitz.accept(10, match["id"], 2))
         await asyncio.wait_for(entered.wait(), 1)
         release.set()
-        with patch("just_bot.blitz.time.time", return_value=5000):
+        with patch("extensions.blitz.engine.time.time", return_value=5000):
             result = await task
         self.assertEqual((result["starts_at"], result["ends_at"]), (5000, 5120))
         self.voice.announce_start.assert_awaited_once()
@@ -265,7 +217,7 @@ class BlitzTests(unittest.IsolatedAsyncioTestCase):
         self.cf.submissions.side_effect = stuck
         self.blitz.request_check(10, match["id"])
         await asyncio.sleep(0)
-        with patch("just_bot.blitz.time.time", return_value=2001):
+        with patch("extensions.blitz.engine.time.time", return_value=2001):
             await asyncio.wait_for(self.blitz.tick(10), timeout=1)
         self.assertFalse(self.voice.muted)
         self.assertEqual(self.data.match(10, match["id"])["state"], "settling")
@@ -273,9 +225,9 @@ class BlitzTests(unittest.IsolatedAsyncioTestCase):
     async def test_unavailable_api_never_produces_a_false_timeout_result(self):
         match = await self.game()
         self.cf.submissions.side_effect = UserError("API down")
-        with self.assertLogs("just_bot.blitz", level="WARNING"):
+        with self.assertLogs("extensions.blitz.engine", level="WARNING"):
             await self.blitz.poll(10, match["id"])
-        with patch("just_bot.blitz.time.time", return_value=2121):
+        with patch("extensions.blitz.engine.time.time", return_value=2121):
             await self.blitz.tick(10)
         self.assertEqual(self.data.match(10, match["id"])["state"], "unresolved")
         self.assertFalse(self.voice.muted)
@@ -313,7 +265,7 @@ class BlitzTests(unittest.IsolatedAsyncioTestCase):
         second = await self.game((4, 5))
         self.data.update_match(first["id"], state="starting")
         replacement = Blitz(self.blitz.community, self.data, self.voice)
-        with patch("just_bot.blitz.time.time", return_value=1500):
+        with patch("extensions.blitz.engine.time.time", return_value=1500):
             await replacement.recover(10)
         self.assertEqual(self.data.match(10, first["id"])["state"], "cancelled")
         self.assertEqual(self.data.match(10, second["id"])["state"], "active")
@@ -349,7 +301,7 @@ class BlitzTests(unittest.IsolatedAsyncioTestCase):
         lock = self.blitz.game_lock(first["id"])
         await lock.acquire()
         try:
-            with patch("just_bot.blitz.time.time", return_value=2001):
+            with patch("extensions.blitz.engine.time.time", return_value=2001):
                 await asyncio.wait_for(self.blitz.tick(10), timeout=1)
             self.assertEqual(self.voice.muted, {1, 2, 3})
         finally:
@@ -374,7 +326,7 @@ class BlitzTests(unittest.IsolatedAsyncioTestCase):
 
     async def test_organizer_shortening_timer_releases_voices_immediately(self):
         match = await self.game()
-        with patch("just_bot.blitz.time.time", return_value=1200):
+        with patch("extensions.blitz.engine.time.time", return_value=1200):
             updated = await self.blitz.set_time(10, match["id"], 1)
         self.assertEqual(updated["ends_at"], 1060)
         self.assertEqual(updated["state"], "settling")
@@ -402,7 +354,7 @@ class BlitzTests(unittest.IsolatedAsyncioTestCase):
                 return [submission(1100)]
             raise UserError("API unavailable")
         self.cf.submissions.side_effect = history
-        with self.assertLogs("just_bot.blitz", level="WARNING"):
+        with self.assertLogs("extensions.blitz.engine", level="WARNING"):
             await self.blitz.poll(10, match["id"])
         self.assertEqual(self.voice.muted, {2, 3})
         self.assertEqual(self.data.match(10, match["id"])["state"], "active")
@@ -413,7 +365,7 @@ class BlitzTests(unittest.IsolatedAsyncioTestCase):
         match = await self.blitz.solo(10, 1, {})
         self.assertIsNone(match["options"]["minutes"])
         self.assertIsNone(match["ends_at"])
-        with patch("just_bot.blitz.time.time", return_value=match["starts_at"] + 864000):
+        with patch("extensions.blitz.engine.time.time", return_value=match["starts_at"] + 864000):
             await self.blitz.tick(10)
         self.assertEqual(self.data.match(10, match["id"])["state"], "active")
         self.assertEqual(self.voice.muted, {1})
@@ -422,7 +374,7 @@ class BlitzTests(unittest.IsolatedAsyncioTestCase):
         match = await self.blitz.solo(10, 1, {"voice_mode": "both"})
         stamp = match["starts_at"] + 86400
         self.cf.submissions.return_value = [submission(stamp)]
-        with patch("just_bot.blitz.time.time", return_value=stamp + 1):
+        with patch("extensions.blitz.engine.time.time", return_value=stamp + 1):
             await self.blitz.poll(10, match["id"])
         self.assertEqual(self.data.match(10, match["id"])["state"], "finished")
         self.assertFalse(self.voice.muted)
@@ -485,14 +437,14 @@ class BlitzTests(unittest.IsolatedAsyncioTestCase):
         match = await self.blitz.accept(10, match["id"], 2)
         self.voice.muted.clear()
         self.voice.deafened.clear()
-        with patch("just_bot.blitz.time.time", return_value=match["starts_at"] + 10):
+        with patch("extensions.blitz.engine.time.time", return_value=match["starts_at"] + 10):
             await self.blitz.recover(10)
         self.assertEqual(self.voice.muted, {1, 2})
         self.assertEqual(self.voice.deafened, {1, 2})
 
     async def test_recovery_releases_expired_games_instead_of_reapplying_voice_effects(self):
         match = await self.game((1, 2), voice_mode="both")
-        with patch("just_bot.blitz.time.time", return_value=2001):
+        with patch("extensions.blitz.engine.time.time", return_value=2001):
             await self.blitz.recover(10)
         self.assertEqual(self.data.match(10, match["id"])["state"], "settling")
         self.assertFalse(self.voice.muted | self.voice.deafened)
@@ -504,9 +456,9 @@ class BlitzTests(unittest.IsolatedAsyncioTestCase):
             return [submission(1100)] if handle == "player1" else []
         self.cf.submissions.side_effect = history
         for stamp in (2001, 2100):
-            with patch("just_bot.blitz.time.time", return_value=stamp):
+            with patch("extensions.blitz.engine.time.time", return_value=stamp):
                 await self.blitz.poll(10, match["id"])
-        with patch("just_bot.blitz.time.time", return_value=2121):
+        with patch("extensions.blitz.engine.time.time", return_value=2121):
             await self.blitz.tick(10)
         result = self.data.match(10, match["id"])
         self.assertEqual(result["state"], "finished")

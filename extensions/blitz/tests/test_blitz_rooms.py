@@ -1,6 +1,6 @@
 import unittest
 
-from just_bot.blitz_rooms import choose_voice_room, owns_room
+from extensions.blitz.rooms import choose_voice_room, owns_room
 from just_bot.core.domain import UserError
 
 

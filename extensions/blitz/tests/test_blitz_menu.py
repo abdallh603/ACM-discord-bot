@@ -3,12 +3,11 @@ import unittest
 from types import SimpleNamespace
 from unittest.mock import AsyncMock
 
-from just_bot.activities_store import Activities
-from just_bot.blitz import Blitz
+from extensions.blitz.engine import Blitz
 from just_bot.core.options import RATINGS, TOPICS
 from just_bot.core.service import Community
 from just_bot.core.storage import Store
-from tests.test_blitz import FakeVoice
+from extensions.blitz.tests.support import FakeVoice, blitz_store
 from tests.support import problem
 
 HAS_DISCORD = importlib.util.find_spec("discord") is not None
@@ -17,9 +16,9 @@ HAS_DISCORD = importlib.util.find_spec("discord") is not None
 @unittest.skipUnless(HAS_DISCORD, "Install requirements.txt to test Discord menus")
 class BlitzMenuTests(unittest.IsolatedAsyncioTestCase):
     async def asyncSetUp(self):
-        from just_bot.blitz_menu import BlitzMenu
+        from extensions.blitz.menu import BlitzMenu
         self.store = Store(":memory:")
-        self.data = Activities(self.store)
+        self.data = blitz_store(self.store)
         for user in (1, 2, 3):
             handle = f"player{user}"
             self.store.start_link(10, user, handle, "nonce", 9999999999)
@@ -29,8 +28,8 @@ class BlitzMenuTests(unittest.IsolatedAsyncioTestCase):
         cf.problems.return_value = [problem()]
         cf.contests.return_value = [{"id": 100, "phase": "FINISHED"}]
         self.blitz = Blitz(Community(self.store, cf), self.data, FakeVoice(self.data))
-        self.bot = SimpleNamespace(blitz=self.blitz, activities=self.data)
-        self.view = BlitzMenu(self.bot, 1, 10, [2, 3], {"minutes": None, "text_channel_id": 20})
+        self.runtime = SimpleNamespace(engine=self.blitz, store=self.data, community=self.blitz.community)
+        self.view = BlitzMenu(self.runtime, 1, 10, [2, 3], {"minutes": None, "text_channel_id": 20})
         self.interaction = SimpleNamespace(
             user=SimpleNamespace(id=1), guild_id=10, permissions=SimpleNamespace(manage_guild=True),
             response=SimpleNamespace(edit_message=AsyncMock(), defer=AsyncMock(), send_message=AsyncMock()),
@@ -104,7 +103,7 @@ class BlitzMenuTests(unittest.IsolatedAsyncioTestCase):
         self.assertTrue(self.view.match_options()["show_standings"])
 
     async def test_duration_modal_accepts_blank_as_unlimited_and_rejects_bad_values(self):
-        from just_bot.blitz_menu import BlitzTime
+        from extensions.blitz.menu import BlitzTime
         modal = BlitzTime(self.view)
         modal.minutes._value = "25"
         await modal.on_submit(self.interaction)
@@ -147,5 +146,5 @@ class BlitzMenuTests(unittest.IsolatedAsyncioTestCase):
         await self.view.action(self.interaction, "start")
         match = self.data.matches(10)[0]
         self.assertEqual({p["user_id"] for p in self.data.players(match["id"])}, {2, 3})
-        self.assertTrue(self.bot.blitz.can_access(match, 99))
+        self.assertTrue(self.runtime.engine.can_access(match, 99))
         self.assertIsNone(self.data.slot(10, 1))

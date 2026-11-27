@@ -3,8 +3,8 @@ import unittest
 from types import SimpleNamespace
 from unittest.mock import AsyncMock, MagicMock, patch
 
-from just_bot.activities_store import Activities
-from just_bot.blitz import validate_options
+from extensions.blitz.engine import validate_options
+from extensions.blitz.tests.support import blitz_store
 from just_bot.core.storage import Store
 
 HAS_DISCORD = importlib.util.find_spec("discord") is not None
@@ -13,9 +13,9 @@ HAS_DISCORD = importlib.util.find_spec("discord") is not None
 @unittest.skipUnless(HAS_DISCORD, "Install requirements.txt to test the Discord voice adapter")
 class VoiceAdapterTests(unittest.IsolatedAsyncioTestCase):
     async def asyncSetUp(self):
-        from just_bot.blitz_discord import DiscordBlitz
+        from extensions.blitz.discord_adapter import DiscordBlitz
         self.store = Store(":memory:")
-        self.data = Activities(self.store)
+        self.data = blitz_store(self.store)
         self.match = self.data.create_match(10, 1, validate_options({"move_voice": False}),
                                             [(1, "player1"), (2, "player2")])
         self.members = {}
@@ -31,7 +31,7 @@ class VoiceAdapterTests(unittest.IsolatedAsyncioTestCase):
             self.members[user] = member
         self.guild = SimpleNamespace(fetch_member=AsyncMock(side_effect=lambda user: self.members[user]),
                                      get_channel=lambda channel: None)
-        self.adapter = DiscordBlitz(SimpleNamespace(activities=self.data, get_guild=lambda guild: self.guild))
+        self.adapter = DiscordBlitz(SimpleNamespace(store=self.data, get_guild=lambda guild: self.guild))
 
     async def asyncTearDown(self):
         self.store.close()
@@ -51,7 +51,7 @@ class VoiceAdapterTests(unittest.IsolatedAsyncioTestCase):
 
     async def test_countdown_is_visible_and_problem_is_never_in_countdown_messages(self):
         room, message = self.game_room()
-        with patch("just_bot.blitz_discord.asyncio.sleep", new_callable=AsyncMock) as sleep:
+        with patch("extensions.blitz.discord_adapter.asyncio.sleep", new_callable=AsyncMock) as sleep:
             await self.adapter.countdown(self.data.match(10, self.match["id"]))
         self.assertEqual([call.args[0] for call in sleep.await_args_list], [5, 2, 1, 1, 1])
         notices = [room.send.call_args.kwargs["embed"], *[c.kwargs["embed"] for c in message.edit.await_args_list]]
@@ -65,7 +65,7 @@ class VoiceAdapterTests(unittest.IsolatedAsyncioTestCase):
         room, message = self.game_room()
         async def cancel(seconds):
             self.data.update_match(self.match["id"], state="cancelled")
-        with patch("just_bot.blitz_discord.asyncio.sleep", side_effect=cancel) as sleep:
+        with patch("extensions.blitz.discord_adapter.asyncio.sleep", side_effect=cancel) as sleep:
             await self.adapter.countdown(self.data.match(10, self.match["id"]))
         sleep.assert_awaited_once_with(5)
         self.assertEqual(message.edit.call_args.kwargs["embed"].title, "Blitz stopped")
@@ -115,7 +115,7 @@ class VoiceAdapterTests(unittest.IsolatedAsyncioTestCase):
         import discord
         await self.adapter.enter(self.match, self.data.players(self.match["id"])[0])
         self.members[1].edit.side_effect = discord.Forbidden(SimpleNamespace(status=403, reason="Forbidden"), "Missing permission")
-        with self.assertLogs("just_bot.blitz_discord", level="WARNING"):
+        with self.assertLogs("extensions.blitz.discord_adapter", level="WARNING"):
             await self.adapter.cleanup(self.closed_match())
         self.assertEqual(self.data.players(self.match["id"])[0]["owns_mute"], 1)
 
@@ -184,7 +184,7 @@ class VoiceAdapterTests(unittest.IsolatedAsyncioTestCase):
         self.set_mode("deafen")
         await self.adapter.enter(self.match, self.data.players(self.match["id"])[0])
         self.members[1].edit.side_effect = discord.Forbidden(SimpleNamespace(status=403, reason="Forbidden"), "Missing permission")
-        with self.assertLogs("just_bot.blitz_discord", level="WARNING"):
+        with self.assertLogs("extensions.blitz.discord_adapter", level="WARNING"):
             await self.adapter.cleanup(self.closed_match())
         self.data.free_slots(self.match["id"])
         self.assertTrue(self.data.players(self.match["id"])[0]["owns_deaf"])
@@ -209,7 +209,7 @@ class VoiceAdapterTests(unittest.IsolatedAsyncioTestCase):
         await self.adapter.enter(self.match, self.data.players(self.match["id"])[0])
         self.members[1].voice.mute = self.members[1].voice.deaf = False
         self.members[1].edit.side_effect = discord.Forbidden(SimpleNamespace(status=403, reason="Forbidden"), "Missing permission")
-        with self.assertLogs("just_bot.blitz_discord", level="WARNING"):
+        with self.assertLogs("extensions.blitz.discord_adapter", level="WARNING"):
             await self.adapter.cleanup(self.closed_match())
         player = self.data.players(self.match["id"])[0]
         self.assertEqual((player["owns_mute"], player["owns_deaf"]), (1, 1))

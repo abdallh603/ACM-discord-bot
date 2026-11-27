@@ -1,5 +1,5 @@
 """Room selection policy, independent of Discord network operations."""
-from .core.domain import UserError
+from just_bot.core.api import UserError
 
 
 def choose_voice_room(available_ids, occupied_ids, requested_id=None):

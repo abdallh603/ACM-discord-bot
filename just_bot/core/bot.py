@@ -112,9 +112,9 @@ class RoundForgeBot(discord.Client):
         self.extensions = Registry(self)
         try:
             commands.install(ExtensionContext(self, CORE_MANIFEST, self.extensions))
+            self.extensions.load(manifests)
             from ..legacy import install_legacy  # TRANSITIONAL until every feature is an extension
             install_legacy(self)
-            self.extensions.load(manifests)
             self.install_commands()
         except BaseException:
             self.store.close()
