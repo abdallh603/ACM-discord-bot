@@ -14,7 +14,7 @@ import aiohttp
 import discord
 from dotenv import dotenv_values, set_key
 
-from .activity_server import STATIC
+from .server import STATIC
 
 def sdk_status(directory=STATIC / "vendor"):
     bundle, notice, manifest = (directory / name for name in ("discord-sdk.js", "discord-sdk-license.txt", "sdk-build.json"))

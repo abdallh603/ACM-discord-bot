@@ -5,7 +5,7 @@ Set-Location -LiteralPath $PSScriptRoot
 $activityPython = Join-Path $PSScriptRoot '.venv/Scripts/python.exe'
 if (-not (Test-Path -LiteralPath $activityPython)) { throw 'Install the Python requirements first; see README.md.' }
 if (-not (Get-Command npm.cmd -ErrorAction SilentlyContinue)) { throw 'Install Node.js 22 or newer first.' }
-Push-Location -LiteralPath (Join-Path $PSScriptRoot 'activity-client')
+Push-Location -LiteralPath (Join-Path $PSScriptRoot 'extensions/activity/client')
 try {
     if (Test-Path -LiteralPath 'package-lock.json') { & npm.cmd ci } else { & npm.cmd install }
     if ($LASTEXITCODE -ne 0) { throw 'SDK dependency download failed. Run this in a terminal with internet access.' }
@@ -13,7 +13,7 @@ try {
     if ($LASTEXITCODE -ne 0) { throw 'The SDK build failed; inspect the build message above.' }
 } finally { Pop-Location }
 if (-not $BuildOnly) {
-    $setupArguments = @('-m', 'just_bot.activity_setup', '--configure', '--port', $Port)
+    $setupArguments = @('-m', 'extensions.activity.setup_cli', '--configure', '--port', $Port)
     if ($ClientId) { $setupArguments += @('--client-id', $ClientId) }
     & $activityPython @setupArguments
     if ($LASTEXITCODE -ne 0) { throw 'Local setup is incomplete; follow the checklist above.' }

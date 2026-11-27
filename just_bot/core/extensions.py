@@ -158,7 +158,8 @@ def resolve(available: dict[str, Manifest], requested: Sequence[str] | None) -> 
 @dataclass(frozen=True)
 class LeaderboardMode:
     name: str
-    help: str
+    help: str  # phrase for the /help line, e.g. "server ratings"
+    description: str  # phrase for the command description, e.g. "Codeforces rating"
     fetch: Callable
 
 
@@ -297,9 +298,13 @@ class ExtensionContext:
         self._registry.admin_commands.append((order, self._registry.next(), command))
         return command
 
-    def add_leaderboard_mode(self, name: str, *, help: str, fetch: Callable, order: int = 1000):
-        """Add a /leaderboard mode. ``fetch(guild_id, page)`` returns ``(title, rows, score)``."""
-        self._registry.leaderboard_modes.append((order, self._registry.next(), LeaderboardMode(name, help, fetch)))
+    def add_leaderboard_mode(self, name: str, *, help: str, description: str, fetch: Callable, order: int = 1000):
+        """Add a /leaderboard mode. ``fetch(guild_id, page)`` returns ``(title, rows, score)``.
+
+        ``help`` and ``description`` are phrases joined with "or" into /help and the command description.
+        """
+        mode = LeaderboardMode(name, help, description, fetch)
+        self._registry.leaderboard_modes.append((order, self._registry.next(), mode))
 
     def add_loop(self, fn: Callable, *, seconds: float = 0, minutes: float = 0, hours: float = 0,
                  before: Callable | None = None) -> tasks.Loop:

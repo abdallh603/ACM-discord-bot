@@ -5,7 +5,7 @@ import path from 'node:path';
 import {createHash} from 'node:crypto';
 
 const here = path.dirname(fileURLToPath(import.meta.url));
-const output = path.resolve(here, '../just_bot/activity_web/vendor');
+const output = path.resolve(here, '../web/vendor');
 await mkdir(output, {recursive: true});
 const result = await build({absWorkingDir: here, entryPoints: [path.join(here, 'sdk-entry.js')],
   outfile: path.join(output, 'discord-sdk.js'), bundle: true, minify: true, format: 'esm', platform: 'browser',

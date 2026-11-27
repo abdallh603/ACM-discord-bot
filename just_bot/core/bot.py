@@ -45,7 +45,7 @@ class CommunityTree(app_commands.CommandTree):
             allowed = bot.settings.channel_ids
         if allowed and interaction.channel_id not in allowed:
             # Organizers may configure the bot from another channel; extensions may exempt
-            # channels that belong to an activity the member takes part in.
+            # channels that belong to something the member takes part in (e.g. a game).
             exempt = any(bot.extensions.call_hooks("channel_exemption", interaction))
             if not interaction.permissions.manage_guild and not exempt:
                 await reply_error(interaction, "Use a designated bot channel for commands.")
@@ -90,7 +90,6 @@ class RoundForgeBot(discord.Client):
         # Slash commands and per-member REST lookups need no privileged intents.
         intents = discord.Intents.none()
         intents.guilds = True
-        intents.voice_states = True  # TRANSITIONAL: legacy blitz/activity; moves to their manifests
         for manifest in manifests:
             for flag in manifest.intents:
                 setattr(intents, flag, True)
@@ -113,8 +112,6 @@ class RoundForgeBot(discord.Client):
         try:
             commands.install(ExtensionContext(self, CORE_MANIFEST, self.extensions))
             self.extensions.load(manifests)
-            from ..legacy import install_legacy  # TRANSITIONAL until every feature is an extension
-            install_legacy(self)
             self.install_commands()
         except BaseException:
             self.store.close()

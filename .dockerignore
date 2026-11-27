@@ -10,7 +10,7 @@ __pycache__
 .publish
 node_modules
 .npm-cache
-activity-client/node_modules
+extensions/activity/client/node_modules
 *.sqlite*
 *.db
 *.log

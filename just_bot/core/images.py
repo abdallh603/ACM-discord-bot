@@ -1,8 +1,8 @@
 """Shared image helpers: fonts, fitted labels, avatar circles, and a guarded avatar download.
 
 Only allowlisted HTTPS Codeforces hosts are fetched, redirects are refused, and both the
-download size and decoded pixel count are bounded. Profile cards and tournament brackets
-share this single audited implementation.
+download size and decoded pixel count are bounded. Every extension that draws member avatars
+shares this single audited implementation.
 """
 from __future__ import annotations
 

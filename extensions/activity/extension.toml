@@ -1,0 +1,7 @@
+name = "activity"
+version = "1.0.0"
+description = "Discord voice Activity with a shared interactive tournament bracket and match desk"
+requires = ["tournament", "blitz"]
+permissions = ["create_instant_invite"]
+intents = ["voice_states"]
+default_enabled = true

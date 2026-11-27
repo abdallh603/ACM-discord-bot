@@ -16,4 +16,4 @@ build/
 .publish/
 node_modules/
 .npm-cache/
-just_bot/activity_web/vendor/
+extensions/activity/web/vendor/

@@ -4,25 +4,27 @@ from __future__ import annotations
 import base64
 import time
 
-from extensions.blitz.options import voice_mode  # TRANSITIONAL
-from .core.domain import UserError
+from extensions.blitz.options import voice_mode
+from just_bot.core.api import UserError
 
-ACTIVITY_SCHEMA = """
-CREATE TABLE IF NOT EXISTS activity_rooms (
+# Append-only: entry i upgrades schema version i to i + 1.
+MIGRATIONS = [
+    """
+CREATE TABLE activity_rooms (
     instance_id TEXT PRIMARY KEY, guild_id INTEGER NOT NULL, channel_id INTEGER NOT NULL,
     tournament_id TEXT, selected_by INTEGER, updated_at INTEGER NOT NULL
 );
-CREATE TABLE IF NOT EXISTS activity_channel_choices (
+CREATE TABLE activity_channel_choices (
     guild_id INTEGER NOT NULL, channel_id INTEGER NOT NULL, tournament_id TEXT NOT NULL,
     PRIMARY KEY(guild_id,channel_id)
 );
-"""
+""",
+]
 
 
 class ActivityData:
-    def __init__(self, bot):
-        self.bot, self.db = bot, bot.store.db
-        self.db.executescript(ACTIVITY_SCHEMA)
+    def __init__(self, runtime):
+        self.runtime, self.db = runtime, runtime.db
 
     def remember_launch(self, guild, channel, tournament_id):
         with self.db:
@@ -51,14 +53,14 @@ class ActivityData:
     def visible(self, context, member):
         guild = member.guild
         result = []
-        for tournament in self.bot.tournaments.data.recent(context["guild_id"], 100):
+        for tournament in self.runtime.tournaments.store.recent(context["guild_id"], 100):
             channel = guild.get_channel(tournament["channel_id"])
             if channel and channel.permissions_for(member).view_channel:
                 result.append(tournament)
         return result
 
     def can_manage(self, tournament, member):
-        return self.bot.tournaments.can_manage(tournament, member.id, member.guild_permissions.manage_guild)
+        return self.runtime.tournaments.engine.can_manage(tournament, member.id, member.guild_permissions.manage_guild)
 
     def choose(self, context, member, tournament_id):
         choices = {t["id"]: t for t in self.visible(context, member)}
@@ -98,8 +100,8 @@ class ActivityData:
             minutes=options["minutes"], voice_mode=voice_mode(options),
             random_topic=options["random_topic"],
             rating=options["rating_min"] or options["rating_max"], topics=options.get("tags") or ([options["tag"]] if options["tag"] else []))
-        pictures = self.bot.tournaments.platform.pictures
-        for entry in self.bot.tournaments.data.entries(tournament["id"]):
+        pictures = self.runtime.tournaments.engine.platform.pictures
+        for entry in self.runtime.tournaments.store.entries(tournament["id"]):
             identity = pictures.cache.get((context["guild_id"], entry["user_id"], entry["handle"].casefold()))
             identity = identity[1] if identity else {}
             player = {"id": str(entry["user_id"]), "username": identity.get("username", f"Member {entry['user_id']}"),
@@ -108,20 +110,20 @@ class ActivityData:
                 raw = identity.get(name)
                 player[name] = "data:image/png;base64," + base64.b64encode(raw).decode("ascii") if raw else None
             result["players"].append(player)
-        for pair in self.bot.tournaments.data.pairs(tournament["id"]):
+        for pair in self.runtime.tournaments.store.pairs(tournament["id"]):
             item = {key: pair[key] for key in ("round_no", "position", "state", "blitz_id", "note")}
             item.update({key: str(pair[key]) if pair[key] is not None else None for key in ("player_a", "player_b", "winner_id")})
             result["pairs"].append(item)
             if not pair["blitz_id"]:
                 continue
-            match = self.bot.activities.match(context["guild_id"], pair["blitz_id"])
+            match = self.runtime.blitz.store.match(context["guild_id"], pair["blitz_id"])
             result["games"][match["id"]] = {key: match[key] for key in ("id", "state", "starts_at", "ends_at", "outcome")}
             game = result["games"][match["id"]]
             game.update(revision=match["options"]["revision"], countdown_ends_at=match["options"].get("countdown_ends_at"),
                         minutes=match["options"]["minutes"],
                         winner_id=str(match["winner_id"]) if match["winner_id"] else None,
                         players=[{"id": str(p["user_id"]), "ready": p["accepted_revision"] == match["options"]["revision"],
-                                  "solved_at": p["solved_at"]} for p in self.bot.activities.players(match["id"])])
+                                  "solved_at": p["solved_at"]} for p in self.runtime.blitz.store.players(match["id"])])
             # Selection stores the problem before the countdown: keep it server-side until GO.
             game["problem"] = ({key: match["problem"].get(key) for key in ("contestId", "index", "name", "rating", "tags")}
                                if match["problem"] and match["starts_at"] is not None

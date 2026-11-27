@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {bracketColumns, matchLabel, timeLabel, safeProblemUrl} from '../just_bot/activity_web/model.js';
+import {bracketColumns, matchLabel, timeLabel, safeProblemUrl} from '../web/model.js';
 
 test('only known winners fill later rounds', () => {
   const columns = bracketColumns([{round_no: 1, position: 1, state: 'done', player_a: '1', player_b: '2', winner_id: '1'},

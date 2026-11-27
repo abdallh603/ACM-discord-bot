@@ -1,7 +1,7 @@
 FROM node:22-alpine AS activity-sdk
-WORKDIR /app/activity-client
-COPY activity-client/package*.json ./
-COPY activity-client/sdk-entry.js activity-client/build-sdk.mjs ./
+WORKDIR /app/extensions/activity/client
+COPY extensions/activity/client/package*.json ./
+COPY extensions/activity/client/sdk-entry.js extensions/activity/client/build-sdk.mjs ./
 RUN if [ -f package-lock.json ]; then npm ci --no-audit --no-fund; else npm install --no-audit --no-fund; fi && npm run build:sdk
 
 FROM python:3.12-slim
@@ -12,7 +12,8 @@ COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 RUN groupadd --gid 10001 bot && useradd --uid 10001 --gid bot --create-home bot
 COPY --chown=bot:bot just_bot ./just_bot
-COPY --from=activity-sdk --chown=bot:bot /app/just_bot/activity_web/vendor ./just_bot/activity_web/vendor
+COPY --chown=bot:bot extensions ./extensions
+COPY --from=activity-sdk --chown=bot:bot /app/extensions/activity/web/vendor ./extensions/activity/web/vendor
 RUN mkdir /app/data && chown bot:bot /app/data
 USER bot
 CMD ["python", "-m", "just_bot"]

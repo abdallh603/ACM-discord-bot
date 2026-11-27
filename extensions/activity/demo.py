@@ -4,7 +4,7 @@ from __future__ import annotations
 import copy
 import time
 
-from .activity_server import ActivityError
+from .server import ActivityError
 
 
 class DemoActivity:
@@ -132,7 +132,7 @@ class DemoActivity:
             registered = copy.deepcopy(self.value["players"])
             self.reset("running")
             if len(registered) != 8:
-                from .tournament import seed_order
+                from extensions.tournament.engine import seed_order
                 size = 1 << (len(registered) - 1).bit_length()
                 users = [p["id"] for p in registered] + [None] * (size - len(registered))
                 placed = [users[i - 1] for i in seed_order(size)]

@@ -24,7 +24,8 @@ def setup(ext):
         month = datetime.now(bot.store.timezone(guild_id)).strftime("%Y-%m")
         return "Daily points · " + month, store.leaderboard(guild_id, page, month), lambda row: f"{row['points']} pts"
 
-    ext.add_leaderboard_mode("daily", help="monthly daily points", fetch=daily_mode, order=20)
+    ext.add_leaderboard_mode("daily", help="monthly daily points", description="this month's daily points",
+                             fetch=daily_mode, order=20)
     ext.add_loop(feeds.feeds, minutes=1)
 
     def channel(value):

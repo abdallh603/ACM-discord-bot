@@ -6,11 +6,13 @@ from unittest.mock import AsyncMock, Mock
 import discord
 from aiohttp.test_utils import TestClient, TestServer
 
-from just_bot.activity_server import ActivityService, DiscordGateway, ActivityError, create_app
-from just_bot.activity_demo import DemoActivity
-from just_bot.activity_launch import launch_activity, register_entrypoint
-from just_bot.core.domain import UserError
 import extensions.tournament.tests.test_tournament as fixtures
+from extensions.activity.data import MIGRATIONS
+from extensions.activity.demo import DemoActivity
+from extensions.activity.launch import launch_activity, register_entrypoint
+from extensions.activity.server import ActivityError, ActivityService, DiscordGateway, create_app
+from just_bot.core.domain import UserError
+from just_bot.core.schema import migrate
 
 
 class Gateway:
@@ -43,7 +45,9 @@ class ActivityTests(unittest.IsolatedAsyncioTestCase):
         self.guild.voice_states = {uid: SimpleNamespace(channel=self.voice_channel) for uid in (1, 2, 3, 99)}
         self.guild.fetch_member = AsyncMock(side_effect=lambda uid: SimpleNamespace(
             id=uid, name=f"member{uid}", guild=self.guild, guild_permissions=SimpleNamespace(manage_guild=False)))
-        self.bot = SimpleNamespace(store=self.store, tournaments=self.engine, blitz=self.blitz, activities=self.activities,
+        migrate(self.store.db, "activity", MIGRATIONS)
+        self.bot = SimpleNamespace(db=self.store.db, tournaments=SimpleNamespace(engine=self.engine, store=self.engine.data),
+            blitz=SimpleNamespace(engine=self.blitz, store=self.activities),
             get_guild=lambda gid: self.guild if gid == 10 else None, guild_enabled=lambda gid: gid == 10,
             settings=SimpleNamespace(client_id="777", token="bot-fixture", client_secret="secret-fixture"))
         self.gateway = Gateway()
@@ -338,7 +342,7 @@ class LaunchTests(unittest.IsolatedAsyncioTestCase):
         voice.id, voice.name = 500, "Practice room"
         voice.permissions_for.return_value = SimpleNamespace(create_instant_invite=True)
         voice.create_invite = AsyncMock(return_value=SimpleNamespace(url="https://discord.gg/example"))
-        bot = SimpleNamespace(settings=SimpleNamespace(activity_enabled=True, client_id="777"), guild_enabled=lambda gid: gid == 10)
+        bot = SimpleNamespace(settings=SimpleNamespace(enabled=True, client_id="777"), guild_enabled=lambda gid: gid == 10)
         interaction = SimpleNamespace(guild_id=10, channel_id=500, user=SimpleNamespace(voice=SimpleNamespace(channel=voice)),
             guild=SimpleNamespace(me=object()), response=SimpleNamespace(launch_activity=AsyncMock(), defer=AsyncMock()),
             followup=SimpleNamespace(send=AsyncMock()))
@@ -352,10 +356,10 @@ class LaunchTests(unittest.IsolatedAsyncioTestCase):
         interaction.followup.send.assert_awaited_once()
 
     async def test_activity_launch_requires_enabled_configuration_and_voice_membership(self):
-        bot = SimpleNamespace(settings=SimpleNamespace(activity_enabled=False))
+        bot = SimpleNamespace(settings=SimpleNamespace(enabled=False))
         with self.assertRaises(UserError):
             await launch_activity(bot, SimpleNamespace())
-        bot.settings.activity_enabled = True
+        bot.settings.enabled = True
         bot.guild_enabled = lambda gid: True
         with self.assertRaises(UserError):
             await launch_activity(bot, SimpleNamespace(guild_id=10, user=SimpleNamespace(voice=None)))
@@ -365,7 +369,7 @@ class LaunchTests(unittest.IsolatedAsyncioTestCase):
         voice.id = 500
         voice.create_invite = AsyncMock()
         voice.permissions_for.return_value = SimpleNamespace(create_instant_invite=False)
-        bot = SimpleNamespace(settings=SimpleNamespace(activity_enabled=True), guild_enabled=lambda gid: True)
+        bot = SimpleNamespace(settings=SimpleNamespace(enabled=True), guild_enabled=lambda gid: True)
         interaction = SimpleNamespace(guild_id=10, channel_id=123, user=SimpleNamespace(voice=SimpleNamespace(channel=voice)))
         with self.assertRaisesRegex(UserError, "voice channel's chat"):
             await launch_activity(bot, interaction)

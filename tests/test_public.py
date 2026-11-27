@@ -65,6 +65,7 @@ class LeaderboardTests(unittest.IsolatedAsyncioTestCase):
         self.addAsyncCleanup(bot.close)
         command = bot.tree.get_command("leaderboard")
         self.assertEqual([c.value for c in command.get_parameter("mode").choices], ["rating"])
+        self.assertEqual(command.description, "RoundForge server rankings by Codeforces rating")
         send = AsyncMock()
         interaction = SimpleNamespace(guild_id=10, response=SimpleNamespace(send_message=send))
         await command.callback(interaction, "rating", 1)

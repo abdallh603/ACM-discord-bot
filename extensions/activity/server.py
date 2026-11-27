@@ -16,11 +16,12 @@ from urllib.parse import quote
 import aiohttp
 from aiohttp import web
 
-from .activity_data import ActivityData
-from .core.domain import UserError
+from just_bot.core.api import UserError
+
+from .data import ActivityData
 
 log = logging.getLogger(__name__)
-STATIC = Path(__file__).with_name("activity_web")
+STATIC = Path(__file__).with_name("web")
 API = "https://discord.com/api/v10"
 KEY = web.AppKey("activity_service", object)
 
@@ -45,10 +46,10 @@ class DiscordGateway:
         self.settings = settings
         self.http = None
 
-    async def request(self, method, path, *, bearer=None, bot=False, data=None):
+    async def request(self, method, path, *, bearer=None, runtime=False, data=None):
         if self.http is None:
             self.http = aiohttp.ClientSession(timeout=aiohttp.ClientTimeout(total=15))
-        headers = {"Authorization": f"Bot {self.settings.token}"} if bot else (
+        headers = {"Authorization": f"Bot {self.settings.token}"} if runtime else (
             {"Authorization": f"Bearer {bearer}"} if bearer else {})
         base = "https://discord.com/api" if path.startswith("/oauth2/") else API
         async with self.http.request(method, base + path, headers=headers, data=data) as response:
@@ -73,7 +74,7 @@ class DiscordGateway:
         return access, user, min(int(token.get("expires_in", 1800)), 1800)
 
     async def instance(self, instance_id):
-        return await self.request("GET", f"/applications/{self.settings.client_id}/activity-instances/{quote(instance_id, safe='')}", bot=True)
+        return await self.request("GET", f"/applications/{self.settings.client_id}/activity-instances/{quote(instance_id, safe='')}", runtime=True)
 
     async def close(self):
         if self.http:
@@ -83,22 +84,22 @@ class DiscordGateway:
 class ActivityService:
     preview = False
 
-    def __init__(self, bot, gateway=None):
-        self.bot, self.data = bot, ActivityData(bot)
-        self.gateway = gateway or DiscordGateway(bot.settings)
+    def __init__(self, runtime, gateway=None):
+        self.runtime, self.data = runtime, ActivityData(runtime)
+        self.gateway = gateway or DiscordGateway(runtime.settings)
         self.sessions, self.instances, self.members = {}, {}, {}
         self.auth_slots = asyncio.Semaphore(4)
         self.auth_waiting = 0
 
     def config(self):
-        return {"preview": False, "client_id": self.bot.settings.client_id, "server_time": time.time()}
+        return {"preview": False, "client_id": self.runtime.settings.client_id, "server_time": time.time()}
 
     async def context(self, instance_id, user_id, *, fresh=False):
         now = time.monotonic()
         cached = self.instances.get(instance_id)
         if fresh or not cached or cached[0] < now:
             instance = await self.gateway.instance(instance_id)
-            if str(instance.get("application_id")) != self.bot.settings.client_id or instance.get("instance_id") != instance_id:
+            if str(instance.get("application_id")) != self.runtime.settings.client_id or instance.get("instance_id") != instance_id:
                 raise ActivityError("This is not an active RoundForge instance.", 401)
             cached = (now + 20, instance)
             self.instances[instance_id] = cached
@@ -112,8 +113,8 @@ class ActivityService:
         if str(user_id) not in users or not str(location.get("guild_id", "")).isdigit():
             raise ActivityError("Join this activity in a server voice channel before connecting.", 401)
         guild_id, channel_id = int(location["guild_id"]), int(location.get("channel_id") or 0)
-        guild = self.bot.get_guild(guild_id)
-        if not self.bot.guild_enabled(guild_id) or guild is None:
+        guild = self.runtime.get_guild(guild_id)
+        if not self.runtime.guild_enabled(guild_id) or guild is None:
             raise ActivityError("RoundForge is not enabled in this server.")
         channel = guild.get_channel(channel_id)
         channel_type = getattr(channel, "type", None)
@@ -125,7 +126,7 @@ class ActivityService:
         key = context["guild_id"], user_id
         cached = self.members.get(key)
         if fresh or not cached or cached[0] < time.monotonic():
-            guild = self.bot.get_guild(context["guild_id"])
+            guild = self.runtime.get_guild(context["guild_id"])
             if guild is None:
                 raise ActivityError("The server is no longer available.")
             try:
@@ -202,13 +203,13 @@ class ActivityService:
             guild, actor = session.context["guild_id"], session.user_id
             organizer = member.guild_permissions.manage_guild
             if action == "join":
-                await self.bot.tournaments.join(guild, tid, actor)
+                await self.runtime.tournaments.engine.join(guild, tid, actor)
             elif action == "leave":
-                await self.bot.tournaments.leave(guild, tid, actor)
+                await self.runtime.tournaments.engine.leave(guild, tid, actor)
             elif action == "start":
-                await self.bot.tournaments.start(guild, tid, actor, organizer=organizer)
+                await self.runtime.tournaments.engine.start(guild, tid, actor, organizer=organizer)
             elif action == "cancel_tournament":
-                await self.bot.tournaments.cancel(guild, tid, actor, organizer=organizer)
+                await self.runtime.tournaments.engine.cancel(guild, tid, actor, organizer=organizer)
             elif action in {"retry_match", "resolve_match", "set_time", "cancel_match"}:
                 if choices[tid]["state"] != "running" or not self.data.can_manage(choices[tid], member):
                     raise ActivityError("Only this tournament's managers or a server organizer can use these controls.")
@@ -220,19 +221,19 @@ class ActivityService:
                         raise ActivityError("Review the current match attempt first.", 400)
                     options = {"organizer": organizer, "expected_match_id": body["expected_match_id"]}
                     if action == "retry_match":
-                        await self.bot.tournaments.retry(guild, tid, actor, r, position, **options)
+                        await self.runtime.tournaments.engine.retry(guild, tid, actor, r, position, **options)
                     else:
                         winner = body.get("winner_id")
                         if not isinstance(winner, str) or not winner.isascii() or not winner.isdigit() or len(winner) > 20:
                             raise ActivityError("Choose one of this pairing's players.", 400)
-                        await self.bot.tournaments.resolve(guild, tid, actor, r, position, int(winner), **options)
+                        await self.runtime.tournaments.engine.resolve(guild, tid, actor, r, position, int(winner), **options)
                 else:
                     mid = body.get("match_id")
-                    if mid not in {p["blitz_id"] for p in self.bot.tournaments.data.pairs(tid) if p["blitz_id"]}:
+                    if mid not in {p["blitz_id"] for p in self.runtime.tournaments.store.pairs(tid) if p["blitz_id"]}:
                         raise ActivityError("This match is not part of the shared tournament.")
                     if action == "cancel_match":
-                        await self.bot.blitz.cancel(guild, mid, actor, organizer=organizer)
-                        await self.bot.tournaments.advance(guild, tid)
+                        await self.runtime.blitz.engine.cancel(guild, mid, actor, organizer=organizer)
+                        await self.runtime.tournaments.engine.advance(guild, tid)
                     else:
                         minutes = body.get("minutes")
                         if "minutes" not in body or (minutes is not None and (type(minutes) is not int or not 1 <= minutes <= 180)):
@@ -240,15 +241,15 @@ class ActivityService:
                         deadline = body.get("expected_ends_at")
                         if "expected_ends_at" not in body or (deadline is not None and type(deadline) is not int):
                             raise ActivityError("Review the current timer before changing it.", 400)
-                        await self.bot.blitz.set_time(guild, mid, minutes, actor=actor, organizer=organizer, expected_ends_at=deadline)
+                        await self.runtime.blitz.engine.set_time(guild, mid, minutes, actor=actor, organizer=organizer, expected_ends_at=deadline)
             elif action in {"ready", "decline", "check"}:
                 if choices[tid]["state"] != "running":
                     raise ActivityError("This tournament is no longer running.", 400)
                 mid = body.get("match_id")
-                if mid not in {p["blitz_id"] for p in self.bot.tournaments.data.pairs(tid) if p["blitz_id"]}:
+                if mid not in {p["blitz_id"] for p in self.runtime.tournaments.store.pairs(tid) if p["blitz_id"]}:
                     raise ActivityError("This match is not part of the shared tournament.")
-                match = self.bot.activities.match(guild, mid)
-                if not self.bot.blitz.can_access(match, actor) and not organizer:
+                match = self.runtime.blitz.store.match(guild, mid)
+                if not self.runtime.blitz.engine.can_access(match, actor) and not organizer:
                     raise ActivityError("Only this match's players and managers can control it.")
                 if action == "ready":
                     revision = body.get("revision")
@@ -262,15 +263,15 @@ class ActivityService:
                         if not target:
                             states = member.guild.voice_states
                             if any(getattr(getattr(states.get(p["user_id"]), "channel", None), "id", None) != room
-                                   for p in self.bot.activities.players(mid)):
+                                   for p in self.runtime.blitz.store.players(mid)):
                                 raise ActivityError("Both players must join the same voice room before using Ready here. You can also use the bot's regular Accept button.", 400)
-                    await self.bot.blitz.accept(guild, mid, actor, revision)
+                    await self.runtime.blitz.engine.accept(guild, mid, actor, revision)
                 elif action == "decline":
-                    if match["state"] != "pending" or actor not in {p["user_id"] for p in self.bot.activities.players(mid)}:
+                    if match["state"] != "pending" or actor not in {p["user_id"] for p in self.runtime.blitz.store.players(mid)}:
                         raise ActivityError("Only an invited player can decline a pending match.")
-                    await self.bot.blitz.cancel(guild, mid, actor)
+                    await self.runtime.blitz.engine.cancel(guild, mid, actor)
                 else:
-                    self.bot.blitz.request_check(guild, mid)
+                    self.runtime.blitz.engine.request_check(guild, mid)
             else:
                 raise ActivityError("Unknown activity action.", 400)
             return self.data.snapshot(session.context, member)
@@ -370,20 +371,20 @@ def create_app(service):
     return app
 
 
-async def start_server(bot):
-    from .activity_setup import sdk_status
+async def start_server(runtime):
+    from .setup_cli import sdk_status
     ready, message = sdk_status()
     if not ready:
         raise ValueError(message)
-    service = ActivityService(bot)
+    service = ActivityService(runtime)
     runner = web.AppRunner(create_app(service), access_log=None)
     await runner.setup()
     try:
-        await web.TCPSite(runner, bot.settings.activity_host, bot.settings.activity_port).start()
+        await web.TCPSite(runner, runtime.settings.host, runtime.settings.port).start()
     except Exception:
         await runner.cleanup()
         raise
-    log.info("Voice activity server listening on %s:%s", bot.settings.activity_host, bot.settings.activity_port)
+    log.info("Voice activity server listening on %s:%s", runtime.settings.host, runtime.settings.port)
     return runner
 
 
@@ -392,7 +393,7 @@ def main():
     parser.add_argument("--preview", action="store_true", required=True)
     parser.add_argument("--port", type=int, default=8080)
     args = parser.parse_args()
-    from .activity_demo import DemoActivity
+    from .demo import DemoActivity
     web.run_app(create_app(DemoActivity()), host="127.0.0.1", port=args.port, access_log=None)
 
 

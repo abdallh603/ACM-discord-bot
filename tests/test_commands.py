@@ -1,11 +1,10 @@
 import importlib.util
 import inspect
-from dataclasses import replace
 import unittest
 from datetime import datetime, timezone
 from pathlib import Path
 from types import SimpleNamespace
-from unittest.mock import AsyncMock, patch
+from unittest.mock import AsyncMock
 
 HAS_DISCORD = importlib.util.find_spec("discord") is not None
 
@@ -59,14 +58,6 @@ class CommandTests(unittest.IsolatedAsyncioTestCase):
                     result = check(interaction)
                     if inspect.isawaitable(result):
                         await result
-
-    async def test_activity_checks_sdk_before_syncing_discord_commands(self):
-        self.bot.settings = replace(self.bot.settings, activity_enabled=True, client_id="777", client_secret="fixture")
-        self.bot.tree.sync = AsyncMock()
-        with patch("just_bot.activity_setup.sdk_status", return_value=(False, "Build SDK first")):
-            with self.assertRaisesRegex(ValueError, "Build SDK first"):
-                await self.bot.setup_hook()
-        self.bot.tree.sync.assert_not_awaited()
 
     async def test_other_servers_and_non_bot_channels_are_rejected(self):
         for guild_id, channel_id in [(11, 20), (10, 21)]:

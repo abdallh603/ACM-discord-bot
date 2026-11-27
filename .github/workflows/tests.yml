@@ -11,10 +11,10 @@ jobs:
         with:
           node-version: "22"
       - run: if [ -f package-lock.json ]; then npm ci --no-audit --no-fund; else npm install --no-audit --no-fund; fi
-        working-directory: activity-client
+        working-directory: extensions/activity/client
       - run: npm run build:sdk
-        working-directory: activity-client
-      - run: node --check just_bot/activity_web/vendor/discord-sdk.js
+        working-directory: extensions/activity/client
+      - run: node --check extensions/activity/web/vendor/discord-sdk.js
   test:
     runs-on: ubuntu-latest
     strategy:
@@ -27,5 +27,5 @@ jobs:
           python-version: ${{ matrix.python }}
       - run: python -m pip install -r requirements.txt
       - run: python -m unittest discover -v
-      - run: node --test tests/activity_model.test.mjs
+      - run: node --test extensions/activity/tests/activity_model.test.mjs
       - run: python scripts/check_release.py

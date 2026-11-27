@@ -167,7 +167,7 @@ def leaderboard_command(bot: RoundForgeBot, modes):
     leaderboard.__annotations__["mode"] = Literal[tuple(by_name)]
     return app_commands.command(
         name="leaderboard",
-        description="RoundForge server rankings by Codeforces rating or this month's daily points",
+        description="RoundForge server rankings by " + " or ".join(mode.description for mode in modes),
     )(leaderboard)
 
 
@@ -196,7 +196,8 @@ def install(ext):
         await interaction.followup.send(embed=problem_embed(result))
 
     ext.add_command(problem, order=COMMAND_ORDER["problem"])
-    ext.add_leaderboard_mode("rating", help="server ratings", fetch=rating_mode(bot), order=10)
+    ext.add_leaderboard_mode("rating", help="server ratings", description="Codeforces rating",
+                             fetch=rating_mode(bot), order=10)
 
     @app_commands.command(description="Show RoundForge community commands and how to get started")
     async def help(interaction: discord.Interaction):

@@ -9,7 +9,7 @@ from unittest.mock import patch
 
 from dotenv import dotenv_values
 
-from just_bot.activity_setup import configure, local_checks, public_origin, sdk_status
+from extensions.activity.setup_cli import configure, local_checks, public_origin, sdk_status
 
 
 class ActivitySetupTests(unittest.TestCase):
@@ -40,7 +40,7 @@ class ActivitySetupTests(unittest.TestCase):
             env = Path(directory) / ".env"
             env.write_text("DISCORD_TOKEN=bot-fixture\nDATABASE_PATH=data/example.sqlite3\n", encoding="utf-8")
             output = io.StringIO()
-            with patch("just_bot.activity_setup.sdk_status", return_value=(True, "built")), patch("getpass.getpass", return_value="oauth-fixture"), redirect_stdout(output):
+            with patch("extensions.activity.setup_cli.sdk_status", return_value=(True, "built")), patch("getpass.getpass", return_value="oauth-fixture"), redirect_stdout(output):
                 configure(env, "777", 8090)
             values = dotenv_values(env)
             self.assertEqual(values["DISCORD_TOKEN"], "bot-fixture")
