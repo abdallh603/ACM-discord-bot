@@ -43,3 +43,32 @@ class DefaultBundleTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual({"title": embed.title, "description": embed.description, "color": embed.color.value,
                           "footer": embed.footer.text, "ephemeral": send.call_args.kwargs.get("ephemeral")},
                          expected)
+
+    async def test_unlink_and_verify_replies_combine_extension_notes_as_before(self):
+        import discord
+        roles = self.bot.extensions.api("rank")
+        roles.clear_rank_roles = AsyncMock(side_effect=discord.Forbidden(SimpleNamespace(status=403, reason="x"), "no"))
+        self.bot.store.start_link(10, 1, "tester", "n", 9999999999)
+        self.bot.store.complete_link(10, 1, "n", {"handle": "tester"}, 1)
+        interaction = SimpleNamespace(guild_id=10, user=SimpleNamespace(id=1),
+                                      response=SimpleNamespace(defer=AsyncMock()), followup=SimpleNamespace(send=AsyncMock()))
+        group = self.bot.tree.get_command("handle")
+        await group.get_command("unlink").callback(group, interaction)
+        self.assertEqual(interaction.followup.send.call_args.args[0],
+                         "Account link and pending verification removed. Daily claim history remains to prevent "
+                         "duplicate rewards. An organizer must remove your CF rank role because I lack permission.")
+        self.bot.community.verify = AsyncMock(return_value={"handle": "tester"})
+        await group.get_command("verify").callback(group, interaction)
+        self.assertEqual(interaction.followup.send.call_args.args[0],
+                         "Linked **tester**. You can restore your Codeforces First name. "
+                         "Use `/rank sync` to update your rating role.")
+
+    async def test_admin_status_lists_every_line_in_the_original_order(self):
+        send = AsyncMock()
+        interaction = SimpleNamespace(guild_id=10, response=SimpleNamespace(send_message=send))
+        status = self.bot.tree.get_command("admin").get_command("status")
+        await status.callback(interaction)
+        self.assertEqual(send.call_args.kwargs["embed"].description,
+                         "Verified handles: **0**\nContest feed: Off\nDaily feed: Off\n"
+                         "Daily: rating **1200**, 09:00 UTC\nRank roles configured: **0**\n"
+                         "Last refresh: Not run since startup")

@@ -1,0 +1,6 @@
+name = "rank"
+version = "1.0.0"
+description = "Codeforces rank roles synced from verified ratings"
+requires = []
+permissions = ["manage_roles"]
+default_enabled = true

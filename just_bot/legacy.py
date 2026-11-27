@@ -14,7 +14,7 @@ from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 import discord
 from discord import app_commands
 
-from .core.domain import RANKS, UserError, rank_for, upcoming_contests
+from .core.domain import UserError, upcoming_contests
 from .core.extensions import ExtensionContext, Manifest
 from .core.options import rating_choices, timezone_choices
 from .core.presentation import contest_embed, problem_embed
@@ -28,135 +28,10 @@ async def defer(interaction: discord.Interaction, *, private: bool = False):
 
 def install_legacy(bot):
     ext = ExtensionContext(bot, Manifest("legacy", "0", "Features not yet moved", None, __name__), bot.extensions)
-    install_rank(ext)
     install_daily(ext)
     install_blitz(ext)
     install_tournament(ext)
     install_activity(ext)
-
-
-# -- rank roles --------------------------------------------------------------------------
-class RankRoles:
-    def __init__(self, bot):
-        self.bot = bot
-        self.rank_locks = {}
-        self.role_setup_locks = {}
-
-    def rank_lock(self, guild_id: int, user_id: int) -> asyncio.Lock:
-        return self.rank_locks.setdefault((guild_id, user_id), asyncio.Lock())
-
-    def role_setup_lock(self, guild_id):
-        return self.role_setup_locks.setdefault(guild_id, asyncio.Lock())
-
-    async def clear_rank_roles(self, member: discord.Member):
-        async with self.rank_lock(member.guild.id, member.id):
-            # Fetch current state; the member cache is intentionally disabled.
-            member = await member.guild.fetch_member(member.id)
-            managed = set(self.bot.store.roles(member.guild.id).values())
-            roles = [role for role in member.roles if role.id in managed]
-            if roles:
-                await member.remove_roles(*roles, reason="Codeforces account unlinked")
-
-    async def sync_rank_role(self, member: discord.Member, rating: int | None) -> bool:
-        async with self.rank_lock(member.guild.id, member.id):
-            # Re-read the verified link after each REST wait, preventing stale rank grants.
-            member = await member.guild.fetch_member(member.id)
-            linked = self.bot.store.member(member.guild.id, member.id)
-            if not linked:
-                return False
-            rating = linked["rating"]
-            rank, _ = rank_for(rating)
-            mapping = self.bot.store.roles(member.guild.id)
-            if not mapping:
-                return False
-            desired = member.guild.get_role(mapping.get(rank, 0))
-            if not desired:
-                raise UserError("A CF rank role is missing. Ask an organizer to run /admin setup_roles.")
-            managed = set(mapping.values())
-            # Add/remove only recorded CF roles; do not replace the user's whole role list.
-            old_roles = [role for role in member.roles if role.id in managed and role.id != desired.id]
-            if desired not in member.roles:
-                await member.add_roles(desired, reason="Verified Codeforces rating sync")
-            if old_roles:
-                await member.remove_roles(*old_roles, reason="Codeforces rank changed")
-            return True
-
-
-class Rank(app_commands.Group):
-    def __init__(self, bot, roles: RankRoles):
-        super().__init__(name="rank", description="Refresh your Codeforces rating and rank role")
-        self.bot = bot
-        self.roles = roles
-
-    @app_commands.command(description="Refresh your linked rating and update your CF role")
-    @app_commands.checks.cooldown(1, 60, key=lambda i: (i.guild_id, i.user.id))
-    async def sync(self, interaction: discord.Interaction):
-        await defer(interaction, private=True)
-        member = self.bot.community.require_member(interaction.guild_id, interaction.user.id)
-        handle = member["handle"]
-        profile = (await self.bot.cf.users([handle], fresh=True))[0]
-        current = self.bot.store.member(interaction.guild_id, interaction.user.id)
-        if not current or current["handle"].casefold() != handle.casefold():
-            raise UserError("Your account link changed. Try /rank sync again.")
-        self.bot.store.update_profile(interaction.guild_id, profile, int(time.time()))
-        rank, _ = rank_for(profile.get("rating"))
-        changed = await self.roles.sync_rank_role(interaction.user, profile.get("rating"))
-        await interaction.followup.send(
-            f"Rating refreshed: **{profile.get('rating', 'Unrated')} · {rank}**. "
-            + ("Rank role synced." if changed else "An organizer can enable roles with /admin setup_roles."),
-            ephemeral=True,
-        )
-
-
-def setup_roles_command(bot, roles: RankRoles):
-    @app_commands.command(name="setup_roles", description="Create the bot's CF rank roles (requires Manage Roles)")
-    @app_commands.checks.has_permissions(manage_guild=True)
-    @app_commands.checks.bot_has_permissions(manage_roles=True)
-    async def setup_roles(interaction: discord.Interaction):
-        await defer(interaction, private=True)
-        async with roles.role_setup_lock(interaction.guild_id):
-            mapping = bot.store.roles(interaction.guild_id)
-            ranks = [("Unrated", 0x6B7280)] + [(name, color) for _, name, color in RANKS]
-            created = 0
-            for name, color in ranks:
-                if interaction.guild.get_role(mapping.get(name, 0)):
-                    continue
-                role = await interaction.guild.create_role(
-                    name=f"CF · {name}", color=discord.Color(color), permissions=discord.Permissions.none(),
-                    reason="RoundForge bot rank role setup", hoist=True, mentionable=False,
-                )
-                bot.store.save_role(interaction.guild_id, name, role.id)
-                created += 1
-        await interaction.followup.send(
-            f"Created {created} CF roles. Put my bot role above all CF roles in Server Settings → Roles. "
-            "Members can use /rank sync; automatic refresh runs hourly.", ephemeral=True,
-        )
-    return setup_roles
-
-
-def install_rank(ext):
-    bot = ext.bot
-    roles = RankRoles(bot)
-    bot.rank_roles = roles
-    ext.add_command(Rank(bot, roles), order=30)
-    ext.add_admin_command(setup_roles_command(bot, roles), order=20)
-
-    async def member_refreshed(member, linked):
-        await roles.sync_rank_role(member, linked["rating"])
-
-    async def after_unlink(member):
-        try:
-            await roles.clear_rank_roles(member)
-        except discord.HTTPException:
-            return "An organizer must remove your CF rank role because I lack permission."
-        return None
-
-    ext.hook("member_refreshed", member_refreshed)
-    ext.hook("after_unlink", after_unlink, order=20)
-    ext.hook("link_verified", lambda guild, user, profile: "Use `/rank sync` to update your rating role.")
-    ext.hook("admin_status", lambda guild: f"Rank roles configured: **{len(bot.store.roles(guild))}**", order=50)
-    ext.help("`/rank sync` — refresh your rating and CF role", block="commands", order=70)
-    ext.help_item("`/admin setup_roles`", line="admin", order=30)
 
 
 # -- daily problems and contest reminders -------------------------------------------------

@@ -94,10 +94,8 @@ class StoreTests(unittest.TestCase):
     def test_settings_and_deliveries_survive_restart(self):
         self.store.configure(10, 111, 222, 1000, 9)
         self.store.mark_sent(10, "contest/1")
-        self.store.save_role(10, "Pupil", 333)
         self.store.close()
         self.store = Store(self.path)
         self.assertEqual(self.store.settings(10)["daily_rating"], 1000)
-        self.assertEqual(self.store.roles(10), {"Pupil": 333})
         self.assertTrue(self.store.was_sent(10, "contest/1"))
         self.assertFalse(self.store.was_sent(11, "contest/1"))

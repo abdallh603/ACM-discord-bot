@@ -74,11 +74,8 @@ class PublicBotTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual([c.args[0].id for c in feeds.feeds_for.await_args_list], [10, 11])
         self.assertEqual([c.args[0].id for c in self.bot.request_refresh.call_args_list], [10, 11])
 
-    async def test_lock_and_status_state_are_server_scoped(self):
-        roles = self.bot.rank_roles
-        self.assertIsNot(roles.rank_lock(10, 1), roles.rank_lock(11, 1))
+    async def test_refresh_lock_is_server_scoped(self):
         self.assertIsNot(self.bot.refresh_lock(10), self.bot.refresh_lock(11))
-        self.assertIsNot(roles.role_setup_lock(10), roles.role_setup_lock(11))
 
     async def test_native_command_options_include_topics_ratings_and_timezones(self):
         self.assertEqual((await rating_choices(None, "35"))[0].value, 3500)

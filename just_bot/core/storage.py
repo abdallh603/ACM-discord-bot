@@ -36,10 +36,6 @@ CREATE TABLE core_guild_channels (
 
 # TRANSITIONAL: feature tables still owned by modules that have not moved to an extension yet.
 LEGACY_SCHEMA = """
-CREATE TABLE IF NOT EXISTS rank_roles (
-    guild_id INTEGER NOT NULL, rank TEXT NOT NULL, role_id INTEGER NOT NULL,
-    PRIMARY KEY (guild_id, rank), UNIQUE (guild_id, role_id)
-);
 CREATE TABLE IF NOT EXISTS daily_problems (
     guild_id INTEGER NOT NULL, day TEXT NOT NULL, problem TEXT NOT NULL,
     starts_at INTEGER NOT NULL, ends_at INTEGER NOT NULL,
@@ -188,18 +184,6 @@ class Store:
                 self.db.execute("DELETE FROM core_guild_channels WHERE guild_id=? AND channel_id=?", (guild, channel))
             else:
                 raise UserError("Select a channel to add/remove, or use clear.")
-
-    def roles(self, guild: int) -> dict[str, int]:
-        return {r["rank"]: r["role_id"] for r in self.db.execute(
-            "SELECT rank, role_id FROM rank_roles WHERE guild_id=?", (guild,)
-        )}
-
-    def save_role(self, guild: int, rank: str, role_id: int):
-        with self.db:
-            self.db.execute(
-                "INSERT INTO rank_roles VALUES (?, ?, ?) ON CONFLICT(guild_id, rank) "
-                "DO UPDATE SET role_id=excluded.role_id", (guild, rank, role_id),
-            )
 
     def daily(self, guild: int, day: str):
         row = self.db.execute(
