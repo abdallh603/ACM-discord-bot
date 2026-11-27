@@ -9,13 +9,17 @@ and request solve checks. Hosts can start/cancel their tournament and choose the
 that everyone in the same Activity instance follows. Existing Blitz rules still control
 problem selection, results, room reuse, and mute/deafen recovery.
 
+The Activity is the `activity` extension in [`extensions/activity/`](extensions/activity/) and
+requires the `tournament` and `blitz` extensions (all enabled by default; see
+[extensions/README.md](extensions/README.md)). The extension reads the `ACTIVITY_*` and `DISCORD_CLIENT_*` settings below.
+
 ## Review locally first
 
 No Discord account, secret, SDK build, bot login, or real database is needed for this preview:
 
 ```powershell
 # From the project folder, after installing requirements.txt:
-.\.venv\Scripts\python.exe -m just_bot.activity_server --preview --port 8080
+.\.venv\Scripts\python.exe -m extensions.activity.server --preview --port 8080
 # Or: .\preview-activity.ps1
 ```
 
@@ -38,22 +42,22 @@ hidden OAuth client secret locally:
 ```
 
 If your PowerShell policy blocks local scripts, use the individual npm commands below and then
-run `.\.venv\Scripts\python.exe -m just_bot.activity_setup --configure` directly. You do not
+run `.\.venv\Scripts\python.exe -m extensions.activity.setup_cli --configure` directly. You do not
 need to change your system execution policy. The setup preserves the existing bot token.
 
 The review preview uses browser-native JavaScript. The real Discord client also needs a locally
 bundled official Embedded App SDK. Use Node.js 22+ and an internet-enabled terminal:
 
 ```powershell
-cd activity-client
+cd extensions/activity/client
 npm.cmd install
 npm.cmd run build:sdk
-cd ..
+cd ../../..
 ```
 
 On Linux/macOS use `npm` instead of `npm.cmd`. The build writes
-`just_bot/activity_web/vendor/discord-sdk.js` and a dependency-license notice. It contains no
-credentials. Keep the generated `activity-client/package-lock.json` with your source for
+`extensions/activity/web/vendor/discord-sdk.js` and a dependency-license notice. It contains no
+credentials. Keep the generated `extensions/activity/client/package-lock.json` with your source for
 repeatable installs, and use `npm ci` once the lockfile exists. The generated vendor folder
 and `node_modules` are ignored by Git; build the bundle before packaging or creating a Docker image.
 The build retains notices for bundled dependencies and checks for their license files.
@@ -162,8 +166,8 @@ timer is shown in its rules, even when it differs from the tournament's default 
 These checks report missing pieces without printing credential values:
 
 ```powershell
-.\.venv\Scripts\python.exe -m just_bot.activity_setup
-.\.venv\Scripts\python.exe -m just_bot.activity_setup --online --public-url https://your-host.example
+.\.venv\Scripts\python.exe -m extensions.activity.setup_cli
+.\.venv\Scripts\python.exe -m extensions.activity.setup_cli --online --public-url https://your-host.example
 ```
 
 Use `--json` for a machine-readable report. Local checks verify the SDK bundle/checksum/notices,
@@ -195,8 +199,8 @@ describes the shared instance and instance-verification API used here.
 ## Checks
 
 ```sh
-python -m unittest discover -s tests -q
-node --test tests/activity_model.test.mjs
+python -m unittest discover -q
+node --test extensions/activity/tests/activity_model.test.mjs
 ```
 
 `scripts/check_activity_ui.cjs` is an optional Playwright browser check against the local preview.

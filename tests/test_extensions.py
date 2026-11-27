@@ -6,6 +6,7 @@ import textwrap
 import unittest
 import uuid
 from pathlib import Path
+from types import SimpleNamespace
 from unittest.mock import AsyncMock, patch
 
 from discord.ext import tasks
@@ -297,3 +298,26 @@ class ExampleExtensionTests(unittest.TestCase):
         example = discover()["example"]
         self.assertFalse(example.default_enabled)
         self.assertEqual(example.requires, ())
+
+
+class HookCallTests(unittest.IsolatedAsyncioTestCase):
+    async def test_hooks_may_be_plain_or_async_functions(self):
+        bot = RoundForgeBot(Settings("token", None, Path(":memory:"), frozenset(), "INFO", extensions=()))
+        self.addAsyncCleanup(bot.close)
+        seen = []
+
+        async def async_refreshed(member, linked):
+            seen.append(("async", member.id))
+
+        def plain_refreshed(member, linked):
+            seen.append(("plain", member.id))
+
+        bot.extensions.hooks["member_refreshed"] = [(1, 0, plain_refreshed), (2, 1, async_refreshed)]
+        bot.store.start_link(10, 1, "tester", "n", 9999999999)
+        bot.store.complete_link(10, 1, "n", {"handle": "tester"}, 1)
+        bot.community.refresh = AsyncMock(return_value=[])
+        guild = SimpleNamespace(id=10, fetch_member=AsyncMock(return_value=SimpleNamespace(id=1)))
+        await bot.refresh_community(guild)
+        self.assertEqual(seen, [("plain", 1), ("async", 1)])
+        self.assertIn("finished · 0 unavailable", bot.refresh_statuses[10])
+        self.assertEqual(await bot.extensions.run_hooks("missing"), [])

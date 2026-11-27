@@ -3,6 +3,20 @@
 RoundForge works in Discord servers. Each server has its own linked accounts, settings,
 leaderboards, and Blitz games. Use `/help` for a quick list of commands.
 
+Some features are optional extensions that the bot's operator may turn off. `/help` lists only
+the commands this instance has enabled. By default everything below is available:
+
+| Commands | Feature (extension) |
+| --- | --- |
+| `/handle`, `/problem`, `/leaderboard mode:rating`, `/admin channel`/`status`/`refresh`, `/help` | always available (core) |
+| `/daily`, `/contests`, `/leaderboard mode:daily`, `/admin configure`, feed posts | `daily` |
+| `/rank sync`, `/admin setup_roles` | `rank` |
+| `/training`, `/upsolve` | `practice` |
+| the avatar card on `/handle show` | `profile_cards` |
+| `/blitz` | `blitz` |
+| `/tournament` | `tournament` |
+| `/activity` | `activity` |
+
 ## 1. Link your Codeforces account
 
 ```text

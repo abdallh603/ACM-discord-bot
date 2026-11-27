@@ -10,7 +10,7 @@ The project is prepared locally; no remote repository is created by these instru
 3. Run the tests with your virtual-environment Python:
 
 ```powershell
-.\.venv\Scripts\python.exe -m unittest discover -s tests -v
+.\.venv\Scripts\python.exe -m unittest discover -v
 git status --short
 git ls-files
 git check-ignore .env
@@ -39,7 +39,9 @@ Review GitHub Actions after pushing; the test workflow runs automatically.
 
 In Discord Developer Portal, set the application and bot name to **RoundForge**, enable **Public Bot**,
 and configure Guild Install with `bot` and `applications.commands` scopes. Leave privileged intents off.
-Use your application ID in an install URL, and grant only the features' necessary permissions:
+Use your application ID in an install URL, and grant only the enabled features' necessary permissions.
+Each extension lists its permissions in its `extension.toml`; at startup the bot logs the combined
+list and the permissions integer for the install URL:
 
 - Basic commands: View Channels, Send Messages, Embed Links.
 - Tournament artwork/profile cards: Attach Files.

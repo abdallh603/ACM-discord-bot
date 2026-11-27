@@ -4,6 +4,7 @@
 .git
 data
 tests
+**/tests
 __pycache__
 *.pyc
 .test-deps

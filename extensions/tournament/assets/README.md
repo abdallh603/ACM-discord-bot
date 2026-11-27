@@ -2,8 +2,8 @@
 
 Generated with the built-in image-generation tool for this project. No external brand logos,
 university marks, or real people's photographs are included. These decorative branding originals
-are saved in this package. The live tournament embed uses a data-driven bracket image rendered
-by `tournament_image.py`, with actual matchups and results. An illustrative output is saved at
+are saved in this extension. The live tournament embed uses a data-driven bracket image rendered
+by `extensions/tournament/image.py`, with actual matchups and results. An illustrative output is saved at
 `docs/tournament-bracket-preview.png`.
 
 - `tournament-banner.png`: original tournament branding asset.
@@ -19,7 +19,7 @@ Use case: stylized-concept. Asset type: wide Discord tournament champion celebra
 
 ## Profile card
 
-Profile cards are rendered dynamically by `profile_card.py` from the member's actual Discord
+Profile cards are rendered dynamically by `extensions/profile_cards/render.py` from the member's actual Discord
 avatar and the avatar URL returned by the official Codeforces API. These photographs are
 not AI generated. If an avatar is absent or unavailable, initials are shown. The illustrative
 preview in `docs/profile-card-preview.png` uses placeholder names and initials.

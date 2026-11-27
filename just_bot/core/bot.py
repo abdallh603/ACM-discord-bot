@@ -14,7 +14,7 @@ from . import commands
 from .codeforces import Codeforces
 from .config import Settings
 from .domain import UserError
-from .extensions import PACKAGE, ExtensionContext, Manifest, Registry, discover, resolve, schedule_listeners
+from .extensions import PACKAGE, ExtensionContext, Manifest, Registry, call, discover, resolve, schedule_listeners
 from .presentation import safe
 from .service import Community
 from .storage import Store
@@ -207,7 +207,7 @@ class RoundForgeBot(discord.Client):
                         # A failed profile lookup leaves its cached rating but never runs member hooks.
                         if linked["handle"] not in failures:
                             for hook in hooks:
-                                await hook(member, linked)
+                                await call(hook, member, linked)
                     except discord.NotFound:
                         self.store.unlink(guild.id, linked["user_id"])
                     except (discord.HTTPException, UserError):

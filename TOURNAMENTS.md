@@ -118,4 +118,4 @@ Illustrative preview with placeholder names and initials:
 
 ![Profile card layout](docs/profile-card-preview.png)
 
-Artwork prompts and provenance: [assets/README.md](just_bot/assets/README.md).
+Artwork prompts and provenance: [assets/README.md](extensions/tournament/assets/README.md).

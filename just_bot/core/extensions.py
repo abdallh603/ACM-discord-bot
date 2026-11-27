@@ -224,11 +224,7 @@ class Registry:
         return [fn(*args, **kwargs) for fn in self.hooks_for(name)]
 
     async def run_hooks(self, name: str, *args, **kwargs) -> list:
-        results = []
-        for fn in self.hooks_for(name):
-            value = fn(*args, **kwargs)
-            results.append(await value if inspect.isawaitable(value) else value)
-        return results
+        return [await call(fn, *args, **kwargs) for fn in self.hooks_for(name)]
 
     # -- lifecycle -------------------------------------------------------
     async def run_phase(self, phase: str):
@@ -251,6 +247,12 @@ class Registry:
     def required_permissions(self) -> discord.Permissions:
         flags = {flag for manifest in self.enabled for flag in manifest.permissions}
         return discord.Permissions(**{flag: True for flag in flags})
+
+
+async def call(fn: Callable, *args, **kwargs):
+    """Call a hook that may be a plain or an async function."""
+    value = fn(*args, **kwargs)
+    return await value if inspect.isawaitable(value) else value
 
 
 class ExtensionContext:

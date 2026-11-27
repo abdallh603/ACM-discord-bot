@@ -30,15 +30,41 @@ daily challenges, training tracks, upsolving goals, and multiplayer Blitz.
 
 ![Example tournament bracket](docs/tournament-bracket-preview.png)
 
-Review the interactive Activity locally with `python -m just_bot.activity_server --preview`, then
+Review the interactive Activity locally with `python -m extensions.activity.server --preview`, then
 open **http://127.0.0.1:8080**. It uses fictional players and no Discord credentials. Live Discord
 activation requires the SDK build, OAuth settings, and HTTPS URL Mapping in [ACTIVITY.md](ACTIVITY.md).
-`setup-activity.ps1` prepares the SDK and local OAuth settings; `python -m just_bot.activity_setup`
+`setup-activity.ps1` prepares the SDK and local OAuth settings; `python -m extensions.activity.setup_cli`
 checks readiness without printing secrets.
 
 RoundForge is inspired by [PSUT TLE](https://github.com/PSUT-ACM-Student-Chapter/psut-discord-tle)
 and the TLE project. It is a fresh implementation with a smaller feature set, not an official
 university or Codeforces service. MIT licensed; upstream notices remain in [LICENSE](LICENSE).
+
+## Core and extensions
+
+RoundForge is a small core plus optional extensions. Every bundled extension is enabled by
+default, so a fresh install behaves exactly like the all-in-one bot.
+
+- **Core** (`just_bot/core/`): startup, configuration, error handling, channel restrictions and
+  cooldowns, SQLite storage of linked members and server settings, the rate-limited Codeforces
+  client, handle linking/verification, `/handle`, `/problem`, `/leaderboard`, `/admin channel`,
+  `/admin status`, `/admin refresh`, the hourly rating refresh, and `/help`.
+- **Extensions** (`extensions/<name>/`): `daily` (daily problems, contest reminders, `/contests`,
+  `/admin configure`), `rank` (CF rank roles), `practice` (training and upsolving), `profile_cards`,
+  `blitz`, `tournament` (requires blitz), `activity` (requires tournament and blitz), and a
+  disabled-by-default `example`.
+
+Choose features with `ENABLED_EXTENSIONS` (below). To install a third-party extension, copy its
+folder into `extensions/` and add its name to `ENABLED_EXTENSIONS`. A missing dependency stops
+startup with a clear message. [extensions/README.md](extensions/README.md) explains how to write
+an extension: the manifest, the `setup(ext)` API, hooks, per-extension database migrations, and tests.
+
+```text
+just_bot/__main__.py      entry point (python -m just_bot)
+just_bot/core/            core bot, storage, Codeforces client, extension system (api.py is the extension API)
+extensions/<name>/        extension.toml, __init__.py with setup(ext), modules, tests/
+tests/                    core tests, extension-system tests, and default-bundle golden tests
+```
 
 ## Run a public instance
 
@@ -92,6 +118,10 @@ runs the tests, and starts the bot. Keep its window open; Ctrl+C stops it and at
 | `DATABASE_PATH` | `data/roundforge.sqlite3` | Persistent SQLite database |
 | `LOG_LEVEL` | `INFO` | Console logging level |
 | `BOT_CHANNEL_IDS` | empty | Legacy development-only allowlist, requires `DISCORD_GUILD_ID` |
+| `ENABLED_EXTENSIONS` | empty | Comma list of extensions; empty = all bundled defaults, `none` = core only |
+
+Extensions read their own settings from the same `.env`; the Activity's `ACTIVITY_*` and
+`DISCORD_CLIENT_*` variables are described in [ACTIVITY.md](ACTIVITY.md).
 
 Global commands may take time to appear in clients after registration. If migrating from a
 server-only instance, set `LEGACY_GUILD_ID` to that old server ID for the first public startup.
@@ -107,7 +137,7 @@ A server organizer with Manage Server can run:
 /admin channel action:add channel:#bot-commands
 ```
 
-New servers default to UTC. Existing pre-public instances retain their Jordan timezone.
+New servers default to UTC.
 Move the bot role above the `CF · …` roles it creates. It manages recorded role IDs only.
 `/admin configure` replaces feed settings: omitted channels disable those feeds. Pass both
 channels when changing other feed settings if you want to retain them.
@@ -129,13 +159,17 @@ The container runs as a non-root user. Use one container per database.
 
 ```sh
 python -m pip install -r requirements.txt
-python -m unittest discover -s tests -v
-python -m compileall -q just_bot tests
+python -m unittest discover -v
+python -m compileall -q just_bot extensions tests
+node --test extensions/activity/tests/activity_model.test.mjs
 ```
+
+Run the tests from the repository root: discovery covers `tests/` and every `extensions/*/tests/`.
 
 Run these with the Python interpreter in your virtual environment. Tests cover account ownership,
 scoring, timezone boundaries, migrations, server isolation, manager permissions, menu callbacks,
-room reuse, voice recovery, and API retries. They simulate Discord effects; they do not establish
+room reuse, voice recovery, API retries, extension loading and dependency errors, a core-only bot,
+and golden snapshots that keep the default bundle's commands and `/help` text unchanged. They simulate Discord effects; they do not establish
 a live login or prove actual server permissions. CI runs on Python 3.11, 3.12, and 3.13.
 
 ## Operations and limits
@@ -153,8 +187,10 @@ a live login or prove actual server permissions. CI runs on Python 3.11, 3.12, a
   can cause one duplicate reminder; normal restarts preserve recorded deliveries.
 - Back up SQLite with its backup API or while the bot is stopped; copying only a live `.sqlite3`
   file can miss its WAL. Keep backups outside the container and out of Git.
-- Schema v4 preserves existing accounts, games, mute/deafen recovery, and old server timezone
-  settings. Keep `DATABASE_PATH` pointed at the existing database when upgrading.
+- Core and each extension own their own tables (`core_*`, `blitz_*`, …) and schema versions,
+  recorded in `core_schema` and upgraded automatically at startup. Keep `DATABASE_PATH` pointed at
+  the existing database when upgrading. A database created before the extension split is refused
+  with a message; it is not migrated. Disabled extensions keep their tables untouched.
 - Do not use a PSUT/TLE database directly; this project has its own schema.
 - Before removing the bot from a server, cancel its games so it can restore owned voice changes.
   It cannot act while offline or after losing server access.

@@ -13,10 +13,13 @@ dependencies = ["discord.py>=2.6,<3", "python-dotenv>=1,<2", "tzdata>=2025.2", "
 roundforge = "just_bot.__main__:main"
 
 [tool.setuptools.packages.find]
-include = ["just_bot*"]
+include = ["just_bot*", "extensions*"]
+exclude = ["*.tests", "*.tests.*"]
 
 [tool.setuptools.package-data]
-just_bot = ["assets/*.png", "assets/*.md", "activity_web/*.html", "activity_web/*.js", "activity_web/*.css", "activity_web/*.json", "activity_web/vendor/*.js", "activity_web/vendor/*.txt", "activity_web/vendor/*.json"]
+extensions = ["README.md", "*/extension.toml", "tournament/assets/*.png", "tournament/assets/*.md",
+              "activity/web/*.html", "activity/web/*.js", "activity/web/*.css", "activity/web/*.json",
+              "activity/web/vendor/*.js", "activity/web/vendor/*.txt", "activity/web/vendor/*.json"]
 
 [tool.ruff]
 line-length = 100

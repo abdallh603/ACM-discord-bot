@@ -356,7 +356,7 @@ def create_app(service):
     async def sdk(request):
         file = STATIC / "vendor" / "discord-sdk.js"
         if not file.is_file():
-            raise web.HTTPNotFound(text="Build the Discord SDK with npm run build:sdk in activity-client.")
+            raise web.HTTPNotFound(text="Build the Discord SDK with npm run build:sdk in extensions/activity/client.")
         return web.FileResponse(file)
     app.router.add_get("/vendor/discord-sdk.js", sdk)
     async def notices(request):

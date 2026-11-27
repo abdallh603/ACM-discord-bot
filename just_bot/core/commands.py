@@ -8,6 +8,7 @@ import discord
 from discord import app_commands
 
 from .domain import UserError, rank_for
+from .extensions import call
 from .options import rating_choices, topic_choices
 from .presentation import embed, problem_embed, safe
 
@@ -84,7 +85,7 @@ class Handles(app_commands.Group):
         result.add_field(name="Organization (self-reported)", value=safe(profile.get("organization", "—")))
         card = None
         for provider in self.bot.extensions.hooks_for("profile_image"):
-            card = await provider(interaction, member, profile)
+            card = await call(provider, interaction, member, profile)
             if card:
                 break
         if card:

@@ -19,7 +19,7 @@ from .server import STATIC
 def sdk_status(directory=STATIC / "vendor"):
     bundle, notice, manifest = (directory / name for name in ("discord-sdk.js", "discord-sdk-license.txt", "sdk-build.json"))
     if not bundle.is_file() or not notice.is_file() or not manifest.is_file():
-        return False, "Build the official SDK with setup-activity.ps1 or activity-client/npm run build:sdk."
+        return False, "Build the official SDK with setup-activity.ps1 or extensions/activity/client/npm run build:sdk."
     try:
         data = json.loads(manifest.read_text(encoding="utf-8"))
         if not isinstance(data, dict):
