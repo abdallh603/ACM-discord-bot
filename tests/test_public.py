@@ -1,7 +1,6 @@
 import os
 import tempfile
 import unittest
-from datetime import datetime, timezone
 from pathlib import Path
 from types import SimpleNamespace
 from unittest.mock import AsyncMock, MagicMock, patch
@@ -63,15 +62,11 @@ class PublicBotTests(unittest.IsolatedAsyncioTestCase):
         self.bot.tree.sync.assert_awaited_once_with()
         self.assertEqual(start.call_count, 1 + len(self.bot.extensions.loops))
 
-    async def test_background_feeds_and_refresh_cover_every_server(self):
+    async def test_background_refresh_covers_every_server(self):
         guilds = [SimpleNamespace(id=10), SimpleNamespace(id=11)]
         self.bot.active_guilds = lambda: guilds
-        feeds = self.bot.daily_feeds
-        feeds.feeds_for = AsyncMock()
         self.bot.request_refresh = MagicMock()
-        await feeds.feeds()
         await self.bot.hourly_refresh.coro(self.bot)
-        self.assertEqual([c.args[0].id for c in feeds.feeds_for.await_args_list], [10, 11])
         self.assertEqual([c.args[0].id for c in self.bot.request_refresh.call_args_list], [10, 11])
 
     async def test_refresh_lock_is_server_scoped(self):
@@ -82,14 +77,6 @@ class PublicBotTests(unittest.IsolatedAsyncioTestCase):
         self.assertIn("dp", [c.value for c in await topic_choices(None, "dp")])
         self.assertIn("Asia/Amman", [c.value for c in await timezone_choices(None, "amman")])
         self.assertLessEqual(len(await topic_choices(None, "")), 25)
-
-    async def test_daily_calendars_are_independent(self):
-        self.bot.store.set_timezone(11, "Asia/Amman")
-        self.bot.cf.problems = AsyncMock(return_value=[problem(100), problem(101)])
-        now = datetime(2026, 11, 20, 22, tzinfo=timezone.utc)
-        first = await self.bot.community.daily(10, now=now)
-        second = await self.bot.community.daily(11, now=now)
-        self.assertEqual((first["day"], second["day"]), ("2026-11-20", "2026-11-21"))
 
     async def test_token_is_excluded_from_configuration_repr(self):
         self.assertNotIn("private-test-token", repr(self.bot.settings))
@@ -160,3 +147,22 @@ class HostedBlitzTests(unittest.IsolatedAsyncioTestCase):
         with self.assertRaises(UserError):
             await self.blitz.cancel(11, match["id"], 88)
         self.assertEqual(self.data.match(10, match["id"])["state"], "pending")
+
+
+class LeaderboardTests(unittest.IsolatedAsyncioTestCase):
+    async def test_core_only_rating_leaderboard(self):
+        bot = RoundForgeBot(Settings("token", None, Path(":memory:"), frozenset(), "INFO", extensions=()))
+        self.addAsyncCleanup(bot.close)
+        command = bot.tree.get_command("leaderboard")
+        self.assertEqual([c.value for c in command.get_parameter("mode").choices], ["rating"])
+        send = AsyncMock()
+        interaction = SimpleNamespace(guild_id=10, response=SimpleNamespace(send_message=send))
+        await command.callback(interaction, "rating", 1)
+        send.assert_awaited_once_with("No linked members on this page. Start with /handle link.")
+        bot.store.start_link(10, 1, "tester", "n", 9999999999)
+        bot.store.complete_link(10, 1, "n", {"handle": "tester", "rating": None}, 1)
+        await command.callback(interaction, "rating", 1)
+        result = send.call_args.kwargs["embed"]
+        self.assertEqual(result.title, "RoundForge · Codeforces ratings")
+        self.assertEqual(result.description, "**1.** [tester](https://codeforces.com/profile/tester) — **Unrated**")
+        self.assertEqual([field.name for field in result.fields], ["Page", "Rating cache"])

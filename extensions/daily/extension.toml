@@ -1,0 +1,6 @@
+name = "daily"
+version = "1.0.0"
+description = "Daily problems with claims and points, contest reminders, and /contests"
+requires = []
+permissions = ["view_channel", "send_messages", "embed_links"]
+default_enabled = true

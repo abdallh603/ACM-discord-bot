@@ -7,17 +7,12 @@ from __future__ import annotations
 
 import asyncio
 import logging
-import time
-from datetime import datetime
-from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
 import discord
 from discord import app_commands
 
-from .core.domain import UserError, upcoming_contests
+from .core.domain import UserError
 from .core.extensions import ExtensionContext, Manifest
-from .core.options import rating_choices, timezone_choices
-from .core.presentation import contest_embed, problem_embed
 
 log = logging.getLogger(__name__)
 
@@ -28,170 +23,9 @@ async def defer(interaction: discord.Interaction, *, private: bool = False):
 
 def install_legacy(bot):
     ext = ExtensionContext(bot, Manifest("legacy", "0", "Features not yet moved", None, __name__), bot.extensions)
-    install_daily(ext)
     install_blitz(ext)
     install_tournament(ext)
     install_activity(ext)
-
-
-# -- daily problems and contest reminders -------------------------------------------------
-class Daily(app_commands.Group):
-    def __init__(self, bot):
-        super().__init__(name="daily", description="The RoundForge daily programming challenge")
-        self.bot = bot
-
-    @app_commands.command(description="Show today's shared RoundForge problem")
-    async def show(self, interaction: discord.Interaction):
-        await defer(interaction)
-        daily = await self.bot.community.daily(interaction.guild_id)
-        await interaction.followup.send(embed=problem_embed(daily["problem"], daily=daily))
-
-    @app_commands.command(description="Verify your accepted practice submission and earn 10 points")
-    @app_commands.checks.cooldown(1, 30, key=lambda i: (i.guild_id, i.user.id))
-    async def claim(self, interaction: discord.Interaction):
-        await defer(interaction, private=True)
-        submission = await self.bot.community.claim_daily(interaction.guild_id, interaction.user.id)
-        await interaction.followup.send(
-            f"Accepted! **+10 daily points** for RoundForge. "
-            f"[Submission](https://codeforces.com/contest/{submission['problem']['contestId']}"
-            f"/submission/{submission['id']}) · See `/leaderboard mode:daily`.", ephemeral=True,
-        )
-
-
-def configure_command(bot):
-    @app_commands.command(name="configure", description="Set server feeds and timezone; omitted channels turn those feeds off")
-    @app_commands.checks.has_permissions(manage_guild=True)
-    @app_commands.autocomplete(timezone=timezone_choices, daily_rating=rating_choices)
-    async def configure(
-        interaction: discord.Interaction,
-        reminders_channel: discord.TextChannel | None = None,
-        daily_channel: discord.TextChannel | None = None,
-        daily_rating: app_commands.Range[int, 800, 3500] = 1200,
-        daily_hour: app_commands.Range[int, 0, 23] = 9,
-        timezone: str | None = None,
-    ):
-        if daily_rating % 100:
-            raise UserError("Problem rating must be a multiple of 100, such as 1000 or 1200.")
-        if timezone:
-            try:
-                ZoneInfo(timezone)
-            except (ZoneInfoNotFoundError, ValueError) as exc:
-                raise UserError("Choose an IANA timezone such as UTC or Asia/Amman.") from exc
-        for channel in (reminders_channel, daily_channel):
-            if channel:
-                permissions = channel.permissions_for(interaction.guild.me)
-                if not (permissions.view_channel and permissions.send_messages and permissions.embed_links):
-                    raise UserError(f"I need View Channel, Send Messages, and Embed Links in {channel.mention}.")
-        bot.store.configure(
-            interaction.guild_id,
-            reminders_channel.id if reminders_channel else None,
-            daily_channel.id if daily_channel else None, daily_rating, daily_hour,
-        )
-        if timezone:
-            bot.store.set_timezone(interaction.guild_id, timezone)
-        zone = bot.store.timezone(interaction.guild_id).key
-        await interaction.response.send_message(
-            f"Saved. Contest reminders: {reminders_channel.mention if reminders_channel else 'off'}. "
-            f"Daily post: {daily_channel.mention if daily_channel else 'off'} at {daily_hour:02}:00 "
-            f"{zone}, rating {daily_rating}. An already selected daily stays fixed until its deadline.",
-            ephemeral=True,
-        )
-    return configure
-
-
-class Feeds:
-    def __init__(self, bot):
-        self.bot = bot
-
-    async def send_feed(self, guild: discord.Guild, channel_id: int, key: str, result: discord.Embed):
-        store = self.bot.store
-        if store.was_sent(guild.id, key):
-            return
-        channel = guild.get_channel(channel_id)
-        if not isinstance(channel, discord.TextChannel):
-            log.warning("Configured feed channel %s is unavailable", channel_id)
-            return
-        await channel.send(embed=result)
-        # Persist only after Discord accepts the message; transient failures retry next minute.
-        store.mark_sent(guild.id, key)
-
-    async def feeds(self):
-        for guild in self.bot.active_guilds():
-            try:
-                await self.feeds_for(guild)
-            except Exception:
-                log.exception("Guild %s feed failed", guild.id)
-
-    async def feeds_for(self, guild):
-        store = self.bot.store
-        config = store.settings(guild.id)
-        zone = store.timezone(guild.id)
-        now = datetime.now(zone)
-        daily_channel = config["daily_channel_id"]
-        if daily_channel and now.hour >= config["daily_hour"]:
-            key = f"daily/{now.date().isoformat()}/{daily_channel}"
-            if not store.was_sent(guild.id, key):
-                try:
-                    daily = await self.bot.community.daily(guild.id)
-                    await self.send_feed(guild, daily_channel, key, problem_embed(daily["problem"], daily=daily))
-                except Exception:
-                    log.exception("Daily feed failed; will retry next minute")
-        reminder_channel = config["reminders_channel_id"]
-        if reminder_channel:
-            try:
-                stamp = int(time.time())
-                for contest in upcoming_contests(await self.bot.cf.contests(), stamp):
-                    if not 0 < contest["startTimeSeconds"] - stamp <= 1800:
-                        continue
-                    key = f"contest/{contest['id']}/{contest['startTimeSeconds']}/{reminder_channel}"
-                    result = contest_embed(contest, zone)
-                    result.description = "**Contest starts within 30 minutes!**\n" + result.description
-                    await self.send_feed(guild, reminder_channel, key, result)
-            except Exception:
-                log.exception("Contest reminders failed; will retry next minute")
-
-
-def install_daily(ext):
-    bot = ext.bot
-    ext.add_command(Daily(bot), order=20)
-
-    @app_commands.command(description="See upcoming Codeforces contests in your server timezone")
-    async def contests(interaction: discord.Interaction):
-        await defer(interaction)
-        upcoming = upcoming_contests(await bot.cf.contests(), int(time.time()))[:5]
-        if not upcoming:
-            await interaction.followup.send("No upcoming Codeforces contests are listed right now.")
-            return
-        await interaction.followup.send(embeds=[contest_embed(c, bot.store.timezone(interaction.guild_id)) for c in upcoming])
-
-    ext.add_command(contests, order=60)
-    ext.add_admin_command(configure_command(bot), order=10)
-
-    def daily_mode(guild_id, page):
-        month = datetime.now(bot.store.timezone(guild_id)).strftime("%Y-%m")
-        return "Daily points · " + month, bot.store.leaderboard(guild_id, page, month), lambda row: f"{row['points']} pts"
-
-    ext.add_leaderboard_mode("daily", help="monthly daily points", fetch=daily_mode, order=20)
-    bot.daily_feeds = Feeds(bot)
-    ext.add_loop(bot.daily_feeds.feeds, minutes=1)
-
-    def channel(value):
-        return f"<#{value}>" if value else "Off"
-
-    ext.hook("admin_status", lambda guild: f"Contest feed: {channel(bot.store.settings(guild)['reminders_channel_id'])}", order=20)
-    ext.hook("admin_status", lambda guild: f"Daily feed: {channel(bot.store.settings(guild)['daily_channel_id'])}", order=30)
-
-    def schedule(guild):
-        config = bot.store.settings(guild)
-        return f"Daily: rating **{config['daily_rating']}**, {config['daily_hour']:02}:00 {config['timezone']}"
-
-    ext.hook("admin_status", schedule, order=40)
-    ext.hook("after_unlink", lambda member: "Daily claim history remains to prevent duplicate rewards.", order=10)
-    ext.help("`/daily show` → `/daily claim` — daily challenge, 10 points", block="commands", order=40)
-    ext.help("`/contests` — upcoming rounds in your server timezone", block="commands", order=60)
-    ext.help_item("`/admin configure`", line="admin", order=10)
-    ext.help_item("Daily points reward participation; previously solved problems may be solved again.",
-                  line="notes", order=10)
 
 
 # -- blitz -------------------------------------------------------------------------------

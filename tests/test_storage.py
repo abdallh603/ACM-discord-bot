@@ -20,9 +20,6 @@ class StoreTests(unittest.TestCase):
         self.store.start_link(guild, user, handle, "nonce", 1000)
         self.store.complete_link(guild, user, "nonce", {"handle": handle, "rating": rating}, 100)
 
-    def daily(self, day="2026-11-20"):
-        return self.store.save_daily(10, day, {"contestId": 1, "index": "A"}, 100, 1000)
-
     def test_links_are_case_insensitive_unique_and_guild_scoped(self):
         self.link()
         with self.assertRaises(UserError):
@@ -46,34 +43,6 @@ class StoreTests(unittest.TestCase):
             self.store.complete_link(10, 2, "nonce", {"handle": "tester"}, 100)
         self.assertIsNotNone(self.store.pending(10, 2))
 
-    def test_daily_is_immutable_for_the_day(self):
-        first = self.daily()
-        second = self.store.save_daily(10, "2026-11-20", {"contestId": 2, "index": "B"}, 100, 1000)
-        self.assertEqual(first, second)
-
-    def test_duplicate_claims_and_handle_transfer_do_not_create_points(self):
-        self.link()
-        self.daily()
-        self.store.claim(10, "2026-11-20", 1, "tester", 999, 200)
-        with self.assertRaises(UserError):
-            self.store.claim(10, "2026-11-20", 1, "tester", 1000, 200)
-        self.store.unlink(10, 1)
-        self.link(2, "TESTER")
-        with self.assertRaises(UserError):
-            self.store.claim(10, "2026-11-20", 2, "TESTER", 1001, 200)
-        count = self.store.db.execute("SELECT COUNT(*) FROM daily_claims").fetchone()[0]
-        self.assertEqual(count, 1)
-
-    def test_claim_rechecks_current_link_and_deadline(self):
-        self.link()
-        self.daily()
-        for handle, now in [("other", 200), ("tester", 1000), ("tester", 99)]:
-            with self.assertRaises(UserError):
-                self.store.claim(10, "2026-11-20", 1, handle, 999, now)
-        self.store.unlink(10, 1)
-        with self.assertRaises(UserError):
-            self.store.claim(10, "2026-11-20", 1, "tester", 999, 200)
-
     def test_rating_leaderboard_handles_unrated_and_pagination(self):
         self.link(1, "unrated", rating=None)
         self.link(2, "highrated", rating=2400)
@@ -83,19 +52,12 @@ class StoreTests(unittest.TestCase):
         self.assertEqual(self.store.leaderboard(10, 2), [])
         self.assertEqual(self.store.leaderboard(11, 1), [])
 
-    def test_monthly_points_do_not_leak_from_previous_month(self):
-        self.link()
-        for day, sid in [("2026-10-31", 99), ("2026-11-20", 100)]:
-            self.daily(day)
-            self.store.claim(10, day, 1, "tester", sid, 200)
-        self.assertEqual(self.store.leaderboard(10, 1, "2026-11")[0]["points"], 10)
-        self.assertEqual(self.store.leaderboard(10, 1, "2026-12")[0]["points"], 0)
-
-    def test_settings_and_deliveries_survive_restart(self):
-        self.store.configure(10, 111, 222, 1000, 9)
-        self.store.mark_sent(10, "contest/1")
+    def test_timezone_and_channel_rules_survive_restart(self):
+        self.store.set_timezone(10, "Asia/Amman")
+        self.store.channel_rule(10, "add", 30)
         self.store.close()
         self.store = Store(self.path)
-        self.assertEqual(self.store.settings(10)["daily_rating"], 1000)
-        self.assertTrue(self.store.was_sent(10, "contest/1"))
-        self.assertFalse(self.store.was_sent(11, "contest/1"))
+        self.assertEqual(self.store.timezone(10).key, "Asia/Amman")
+        self.assertEqual(self.store.timezone(11).key, "UTC")
+        self.assertEqual(self.store.allowed_channels(10), frozenset({30}))
+        self.assertEqual(self.store.allowed_channels(11), frozenset())

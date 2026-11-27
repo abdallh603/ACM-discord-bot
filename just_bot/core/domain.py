@@ -2,10 +2,7 @@ from __future__ import annotations
 
 import random
 import re
-from datetime import date, datetime, time, timedelta
-from zoneinfo import ZoneInfo
 
-AMMAN = ZoneInfo("Asia/Amman")
 BRAND = "RoundForge"
 BRAND_COLOR = 0x137C66
 RANKS = (
@@ -40,12 +37,6 @@ def rank_for(rating: int | None) -> tuple[str, int]:
         if rating < upper:
             return name, color
     raise AssertionError("Unreachable rating")
-
-
-def day_window(day: date, zone=AMMAN) -> tuple[int, int]:
-    start = datetime.combine(day, time.min, zone)
-    end = datetime.combine(day + timedelta(days=1), time.min, zone)
-    return int(start.timestamp()), int(end.timestamp())
 
 
 def problem_key(problem: dict) -> tuple[int | None, str | None]:
@@ -87,11 +78,3 @@ def accepted_submission(submissions: list[dict], problem: dict, start: int, end:
         and len(s.get("author", {}).get("members", [])) == 1
     ]
     return min(matches, key=lambda s: s["creationTimeSeconds"], default=None)
-
-
-def upcoming_contests(contests: list[dict], now: int) -> list[dict]:
-    return sorted(
-        [c for c in contests if c.get("phase") == "BEFORE"
-         and c.get("startTimeSeconds", 0) > now],
-        key=lambda c: c["startTimeSeconds"],
-    )
