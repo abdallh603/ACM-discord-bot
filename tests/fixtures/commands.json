@@ -1,0 +1,1433 @@
+[
+ {
+  "name": "handle",
+  "description": "Link and verify your Codeforces account",
+  "type": 1,
+  "options": [
+   {
+    "name": "link",
+    "description": "Start proving ownership of your Codeforces handle",
+    "type": 1,
+    "options": [
+     {
+      "type": 3,
+      "name": "handle",
+      "description": "…",
+      "required": true
+     }
+    ]
+   },
+   {
+    "name": "verify",
+    "description": "Finish ownership verification after saving your profile code",
+    "type": 1,
+    "options": []
+   },
+   {
+    "name": "unlink",
+    "description": "Unlink your account and remove bot-managed rank roles",
+    "type": 1,
+    "options": []
+   },
+   {
+    "name": "show",
+    "description": "View a linked member's Codeforces profile",
+    "type": 1,
+    "options": [
+     {
+      "type": 6,
+      "name": "member",
+      "description": "…",
+      "required": false
+     }
+    ]
+   }
+  ],
+  "nsfw": false,
+  "dm_permission": true,
+  "default_member_permissions": null,
+  "contexts": [
+   0
+  ],
+  "integration_types": [
+   0
+  ]
+ },
+ {
+  "name": "daily",
+  "description": "The RoundForge daily programming challenge",
+  "type": 1,
+  "options": [
+   {
+    "name": "show",
+    "description": "Show today's shared RoundForge problem",
+    "type": 1,
+    "options": []
+   },
+   {
+    "name": "claim",
+    "description": "Verify your accepted practice submission and earn 10 points",
+    "type": 1,
+    "options": []
+   }
+  ],
+  "nsfw": false,
+  "dm_permission": true,
+  "default_member_permissions": null,
+  "contexts": [
+   0
+  ],
+  "integration_types": [
+   0
+  ]
+ },
+ {
+  "name": "rank",
+  "description": "Refresh your Codeforces rating and rank role",
+  "type": 1,
+  "options": [
+   {
+    "name": "sync",
+    "description": "Refresh your linked rating and update your CF role",
+    "type": 1,
+    "options": []
+   }
+  ],
+  "nsfw": false,
+  "dm_permission": true,
+  "default_member_permissions": null,
+  "contexts": [
+   0
+  ],
+  "integration_types": [
+   0
+  ]
+ },
+ {
+  "name": "admin",
+  "description": "Configure the RoundForge community bot",
+  "type": 1,
+  "options": [
+   {
+    "name": "configure",
+    "description": "Set server feeds and timezone; omitted channels turn those feeds off",
+    "type": 1,
+    "options": [
+     {
+      "type": 7,
+      "name": "reminders_channel",
+      "description": "…",
+      "required": false,
+      "channel_types": [
+       0,
+       5
+      ]
+     },
+     {
+      "type": 7,
+      "name": "daily_channel",
+      "description": "…",
+      "required": false,
+      "channel_types": [
+       0,
+       5
+      ]
+     },
+     {
+      "type": 4,
+      "name": "daily_rating",
+      "description": "…",
+      "required": false,
+      "autocomplete": true,
+      "min_value": 800,
+      "max_value": 3500
+     },
+     {
+      "type": 4,
+      "name": "daily_hour",
+      "description": "…",
+      "required": false,
+      "min_value": 0,
+      "max_value": 23
+     },
+     {
+      "type": 3,
+      "name": "timezone",
+      "description": "…",
+      "required": false,
+      "autocomplete": true
+     }
+    ]
+   },
+   {
+    "name": "setup_roles",
+    "description": "Create the bot's CF rank roles (requires Manage Roles)",
+    "type": 1,
+    "options": []
+   },
+   {
+    "name": "refresh",
+    "description": "Refresh linked ratings and rank roles now",
+    "type": 1,
+    "options": []
+   },
+   {
+    "name": "status",
+    "description": "Show feed settings, member count, and the latest refresh result",
+    "type": 1,
+    "options": []
+   },
+   {
+    "name": "channel",
+    "description": "Add/remove a bot command channel, or clear restrictions for this server",
+    "type": 1,
+    "options": [
+     {
+      "type": 3,
+      "name": "action",
+      "description": "…",
+      "required": true,
+      "choices": [
+       {
+        "name": "add",
+        "value": "add"
+       },
+       {
+        "name": "remove",
+        "value": "remove"
+       },
+       {
+        "name": "clear",
+        "value": "clear"
+       }
+      ]
+     },
+     {
+      "type": 7,
+      "name": "channel",
+      "description": "…",
+      "required": false,
+      "channel_types": [
+       0,
+       5
+      ]
+     }
+    ]
+   }
+  ],
+  "nsfw": false,
+  "dm_permission": true,
+  "default_member_permissions": 32,
+  "contexts": [
+   0
+  ],
+  "integration_types": [
+   0
+  ]
+ },
+ {
+  "name": "problem",
+  "description": "Find an unsolved Codeforces problem near your rating",
+  "type": 1,
+  "options": [
+   {
+    "type": 4,
+    "name": "rating",
+    "description": "Difficulty (multiple of 100); defaults to your rating",
+    "required": false,
+    "autocomplete": true,
+    "min_value": 800,
+    "max_value": 3500
+   },
+   {
+    "type": 3,
+    "name": "tag",
+    "description": "Optional Codeforces topic, e.g. dp",
+    "required": false,
+    "autocomplete": true
+   }
+  ],
+  "nsfw": false,
+  "dm_permission": true,
+  "default_member_permissions": null,
+  "contexts": [
+   0
+  ],
+  "integration_types": [
+   0
+  ]
+ },
+ {
+  "name": "contests",
+  "description": "See upcoming Codeforces contests in your server timezone",
+  "type": 1,
+  "options": [],
+  "nsfw": false,
+  "dm_permission": true,
+  "default_member_permissions": null,
+  "contexts": [
+   0
+  ],
+  "integration_types": [
+   0
+  ]
+ },
+ {
+  "name": "leaderboard",
+  "description": "RoundForge server rankings by Codeforces rating or this month's daily points",
+  "type": 1,
+  "options": [
+   {
+    "type": 3,
+    "name": "mode",
+    "description": "…",
+    "required": false,
+    "choices": [
+     {
+      "name": "rating",
+      "value": "rating"
+     },
+     {
+      "name": "daily",
+      "value": "daily"
+     }
+    ]
+   },
+   {
+    "type": 4,
+    "name": "page",
+    "description": "…",
+    "required": false,
+    "min_value": 1,
+    "max_value": 1000
+   }
+  ],
+  "nsfw": false,
+  "dm_permission": true,
+  "default_member_permissions": null,
+  "contexts": [
+   0
+  ],
+  "integration_types": [
+   0
+  ]
+ },
+ {
+  "name": "help",
+  "description": "Show RoundForge community commands and how to get started",
+  "type": 1,
+  "options": [],
+  "nsfw": false,
+  "dm_permission": true,
+  "default_member_permissions": null,
+  "contexts": [
+   0
+  ],
+  "integration_types": [
+   0
+  ]
+ },
+ {
+  "name": "training",
+  "description": "Beginner training tracks with saved progress",
+  "type": 1,
+  "options": [
+   {
+    "name": "start",
+    "description": "Start a three-stage beginner track with three problems per stage",
+    "type": 1,
+    "options": [
+     {
+      "type": 3,
+      "name": "track",
+      "description": "…",
+      "required": false,
+      "choices": [
+       {
+        "name": "fundamentals",
+        "value": "fundamentals"
+       },
+       {
+        "name": "greedy",
+        "value": "greedy"
+       },
+       {
+        "name": "binary_search",
+        "value": "binary_search"
+       },
+       {
+        "name": "dp",
+        "value": "dp"
+       }
+      ]
+     }
+    ]
+   },
+   {
+    "name": "status",
+    "description": "Check your saved stage and accepted submissions",
+    "type": 1,
+    "options": []
+   },
+   {
+    "name": "next",
+    "description": "Advance after solving all three problems, or finish the final stage",
+    "type": 1,
+    "options": []
+   },
+   {
+    "name": "stop",
+    "description": "Discard your current training track so you can start another",
+    "type": 1,
+    "options": []
+   }
+  ],
+  "nsfw": false,
+  "dm_permission": true,
+  "default_member_permissions": null,
+  "contexts": [
+   0
+  ],
+  "integration_types": [
+   0
+  ]
+ },
+ {
+  "name": "upsolve",
+  "description": "Post-contest practice goals with a deadline",
+  "type": 1,
+  "options": [
+   {
+    "name": "start",
+    "description": "Pick your next unsolved problems from a finished Codeforces contest",
+    "type": 1,
+    "options": [
+     {
+      "type": 4,
+      "name": "contest_id",
+      "description": "…",
+      "required": true,
+      "min_value": 1,
+      "max_value": 99999
+     },
+     {
+      "type": 4,
+      "name": "hours",
+      "description": "…",
+      "required": false,
+      "min_value": 1,
+      "max_value": 168
+     },
+     {
+      "type": 4,
+      "name": "problems",
+      "description": "…",
+      "required": false,
+      "min_value": 1,
+      "max_value": 5
+     }
+    ]
+   },
+   {
+    "name": "check",
+    "description": "Check accepted submissions for your post-contest goal",
+    "type": 1,
+    "options": []
+   },
+   {
+    "name": "stop",
+    "description": "Clear your current upsolving goal",
+    "type": 1,
+    "options": []
+   }
+  ],
+  "nsfw": false,
+  "dm_permission": true,
+  "default_member_permissions": null,
+  "contexts": [
+   0
+  ],
+  "integration_types": [
+   0
+  ]
+ },
+ {
+  "name": "blitz",
+  "description": "Multiplayer Codeforces games with room reuse and voice control",
+  "type": 1,
+  "options": [
+   {
+    "name": "menu",
+    "description": "Choose a topic, rating, and voice mode from dropdown menus",
+    "type": 1,
+    "options": [
+     {
+      "type": 3,
+      "name": "players",
+      "description": "Optional: mention opponents, or leave blank to use the player picker",
+      "required": false
+     },
+     {
+      "type": 4,
+      "name": "minutes",
+      "description": "…",
+      "required": false,
+      "min_value": 1,
+      "max_value": 180
+     },
+     {
+      "type": 3,
+      "name": "manual_problem",
+      "description": "…",
+      "required": false
+     },
+     {
+      "type": 3,
+      "name": "end_rule",
+      "description": "…",
+      "required": false,
+      "choices": [
+       {
+        "name": "first_solve",
+        "value": "first_solve"
+       },
+       {
+        "name": "all_solve",
+        "value": "all_solve"
+       }
+      ]
+     },
+     {
+      "type": 5,
+      "name": "move_voice",
+      "description": "…",
+      "required": false
+     },
+     {
+      "type": 7,
+      "name": "voice_channel",
+      "description": "…",
+      "required": false,
+      "channel_types": [
+       2
+      ]
+     },
+     {
+      "type": 5,
+      "name": "hosted",
+      "description": "…",
+      "required": false
+     },
+     {
+      "type": 6,
+      "name": "manager",
+      "description": "…",
+      "required": false
+     }
+    ]
+   },
+   {
+    "name": "solo",
+    "description": "Organizer: test blitz alone with real rooms, voice controls, and solves",
+    "type": 1,
+    "options": [
+     {
+      "type": 4,
+      "name": "minutes",
+      "description": "…",
+      "required": false,
+      "min_value": 1,
+      "max_value": 180
+     },
+     {
+      "type": 4,
+      "name": "rating",
+      "description": "…",
+      "required": false,
+      "autocomplete": true,
+      "min_value": 800,
+      "max_value": 3500
+     },
+     {
+      "type": 3,
+      "name": "topic",
+      "description": "…",
+      "required": false,
+      "autocomplete": true
+     },
+     {
+      "type": 3,
+      "name": "manual_problem",
+      "description": "…",
+      "required": false
+     },
+     {
+      "type": 5,
+      "name": "mute_voice",
+      "description": "…",
+      "required": false
+     },
+     {
+      "type": 5,
+      "name": "move_voice",
+      "description": "…",
+      "required": false
+     },
+     {
+      "type": 7,
+      "name": "voice_channel",
+      "description": "…",
+      "required": false,
+      "channel_types": [
+       2
+      ]
+     },
+     {
+      "type": 3,
+      "name": "voice_mode",
+      "description": "…",
+      "required": false,
+      "choices": [
+       {
+        "name": "none",
+        "value": "none"
+       },
+       {
+        "name": "mute",
+        "value": "mute"
+       },
+       {
+        "name": "deafen",
+        "value": "deafen"
+       },
+       {
+        "name": "both",
+        "value": "both"
+       }
+      ]
+     }
+    ]
+   },
+   {
+    "name": "create",
+    "description": "Invite 1–7 other players; everyone accepts before the game starts",
+    "type": 1,
+    "options": [
+     {
+      "type": 3,
+      "name": "players",
+      "description": "Mention 1–7 other members, separated by spaces: @Alice @Bob @Charlie",
+      "required": true
+     },
+     {
+      "type": 4,
+      "name": "minutes",
+      "description": "…",
+      "required": false,
+      "min_value": 1,
+      "max_value": 180
+     },
+     {
+      "type": 4,
+      "name": "rating",
+      "description": "…",
+      "required": false,
+      "autocomplete": true,
+      "min_value": 800,
+      "max_value": 3500
+     },
+     {
+      "type": 4,
+      "name": "rating_min",
+      "description": "…",
+      "required": false,
+      "autocomplete": true,
+      "min_value": 800,
+      "max_value": 3500
+     },
+     {
+      "type": 4,
+      "name": "rating_max",
+      "description": "…",
+      "required": false,
+      "autocomplete": true,
+      "min_value": 800,
+      "max_value": 3500
+     },
+     {
+      "type": 3,
+      "name": "topic",
+      "description": "…",
+      "required": false,
+      "autocomplete": true
+     },
+     {
+      "type": 5,
+      "name": "random_topic",
+      "description": "…",
+      "required": false
+     },
+     {
+      "type": 3,
+      "name": "manual_problem",
+      "description": "…",
+      "required": false
+     },
+     {
+      "type": 3,
+      "name": "end_rule",
+      "description": "…",
+      "required": false,
+      "choices": [
+       {
+        "name": "first_solve",
+        "value": "first_solve"
+       },
+       {
+        "name": "all_solve",
+        "value": "all_solve"
+       }
+      ]
+     },
+     {
+      "type": 5,
+      "name": "mute_voice",
+      "description": "…",
+      "required": false
+     },
+     {
+      "type": 5,
+      "name": "move_voice",
+      "description": "…",
+      "required": false
+     },
+     {
+      "type": 7,
+      "name": "voice_channel",
+      "description": "…",
+      "required": false,
+      "channel_types": [
+       2
+      ]
+     },
+     {
+      "type": 3,
+      "name": "voice_mode",
+      "description": "…",
+      "required": false,
+      "choices": [
+       {
+        "name": "none",
+        "value": "none"
+       },
+       {
+        "name": "mute",
+        "value": "mute"
+       },
+       {
+        "name": "deafen",
+        "value": "deafen"
+       },
+       {
+        "name": "both",
+        "value": "both"
+       }
+      ]
+     },
+     {
+      "type": 6,
+      "name": "manager",
+      "description": "…",
+      "required": false
+     },
+     {
+      "type": 5,
+      "name": "show_standings",
+      "description": "…",
+      "required": false
+     }
+    ]
+   },
+   {
+    "name": "host",
+    "description": "Host a game for 2–8 mentioned players without joining; optionally assign a manager",
+    "type": 1,
+    "options": [
+     {
+      "type": 3,
+      "name": "players",
+      "description": "…",
+      "required": true
+     },
+     {
+      "type": 6,
+      "name": "manager",
+      "description": "…",
+      "required": false
+     },
+     {
+      "type": 4,
+      "name": "minutes",
+      "description": "…",
+      "required": false,
+      "min_value": 1,
+      "max_value": 180
+     },
+     {
+      "type": 4,
+      "name": "rating",
+      "description": "…",
+      "required": false,
+      "autocomplete": true,
+      "min_value": 800,
+      "max_value": 3500
+     },
+     {
+      "type": 4,
+      "name": "rating_min",
+      "description": "…",
+      "required": false,
+      "autocomplete": true,
+      "min_value": 800,
+      "max_value": 3500
+     },
+     {
+      "type": 4,
+      "name": "rating_max",
+      "description": "…",
+      "required": false,
+      "autocomplete": true,
+      "min_value": 800,
+      "max_value": 3500
+     },
+     {
+      "type": 3,
+      "name": "topic",
+      "description": "…",
+      "required": false,
+      "autocomplete": true
+     },
+     {
+      "type": 5,
+      "name": "random_topic",
+      "description": "…",
+      "required": false
+     },
+     {
+      "type": 3,
+      "name": "manual_problem",
+      "description": "…",
+      "required": false
+     },
+     {
+      "type": 3,
+      "name": "end_rule",
+      "description": "…",
+      "required": false,
+      "choices": [
+       {
+        "name": "first_solve",
+        "value": "first_solve"
+       },
+       {
+        "name": "all_solve",
+        "value": "all_solve"
+       }
+      ]
+     },
+     {
+      "type": 3,
+      "name": "voice_mode",
+      "description": "…",
+      "required": false,
+      "choices": [
+       {
+        "name": "none",
+        "value": "none"
+       },
+       {
+        "name": "mute",
+        "value": "mute"
+       },
+       {
+        "name": "deafen",
+        "value": "deafen"
+       },
+       {
+        "name": "both",
+        "value": "both"
+       }
+      ]
+     },
+     {
+      "type": 5,
+      "name": "move_voice",
+      "description": "…",
+      "required": false
+     },
+     {
+      "type": 7,
+      "name": "voice_channel",
+      "description": "…",
+      "required": false,
+      "channel_types": [
+       2
+      ]
+     },
+     {
+      "type": 5,
+      "name": "show_standings",
+      "description": "…",
+      "required": false
+     }
+    ]
+   },
+   {
+    "name": "accept",
+    "description": "Accept the current settings; the game starts when everyone accepts",
+    "type": 1,
+    "options": [
+     {
+      "type": 3,
+      "name": "match_id",
+      "description": "…",
+      "required": true
+     },
+     {
+      "type": 4,
+      "name": "revision",
+      "description": "…",
+      "required": false,
+      "min_value": 1,
+      "max_value": 10000
+     }
+    ]
+   },
+   {
+    "name": "edit",
+    "description": "Edit a pending game's settings; all other players must accept again",
+    "type": 1,
+    "options": [
+     {
+      "type": 3,
+      "name": "match_id",
+      "description": "…",
+      "required": true
+     },
+     {
+      "type": 4,
+      "name": "minutes",
+      "description": "…",
+      "required": false,
+      "min_value": 1,
+      "max_value": 180
+     },
+     {
+      "type": 4,
+      "name": "rating",
+      "description": "…",
+      "required": false,
+      "autocomplete": true,
+      "min_value": 800,
+      "max_value": 3500
+     },
+     {
+      "type": 4,
+      "name": "rating_min",
+      "description": "…",
+      "required": false,
+      "autocomplete": true,
+      "min_value": 800,
+      "max_value": 3500
+     },
+     {
+      "type": 4,
+      "name": "rating_max",
+      "description": "…",
+      "required": false,
+      "autocomplete": true,
+      "min_value": 800,
+      "max_value": 3500
+     },
+     {
+      "type": 3,
+      "name": "topic",
+      "description": "…",
+      "required": false,
+      "autocomplete": true
+     },
+     {
+      "type": 5,
+      "name": "random_topic",
+      "description": "…",
+      "required": false
+     },
+     {
+      "type": 3,
+      "name": "manual_problem",
+      "description": "…",
+      "required": false
+     },
+     {
+      "type": 3,
+      "name": "end_rule",
+      "description": "…",
+      "required": false,
+      "choices": [
+       {
+        "name": "first_solve",
+        "value": "first_solve"
+       },
+       {
+        "name": "all_solve",
+        "value": "all_solve"
+       }
+      ]
+     },
+     {
+      "type": 5,
+      "name": "mute_voice",
+      "description": "…",
+      "required": false
+     },
+     {
+      "type": 5,
+      "name": "move_voice",
+      "description": "…",
+      "required": false
+     },
+     {
+      "type": 5,
+      "name": "clear_filters",
+      "description": "…",
+      "required": false
+     },
+     {
+      "type": 5,
+      "name": "clear_problem",
+      "description": "…",
+      "required": false
+     },
+     {
+      "type": 5,
+      "name": "unlimited",
+      "description": "…",
+      "required": false
+     },
+     {
+      "type": 3,
+      "name": "voice_mode",
+      "description": "…",
+      "required": false,
+      "choices": [
+       {
+        "name": "none",
+        "value": "none"
+       },
+       {
+        "name": "mute",
+        "value": "mute"
+       },
+       {
+        "name": "deafen",
+        "value": "deafen"
+       },
+       {
+        "name": "both",
+        "value": "both"
+       }
+      ]
+     },
+     {
+      "type": 5,
+      "name": "show_standings",
+      "description": "…",
+      "required": false
+     }
+    ]
+   },
+   {
+    "name": "status",
+    "description": "Show your current game or a specific game you participated in",
+    "type": 1,
+    "options": [
+     {
+      "type": 3,
+      "name": "match_id",
+      "description": "…",
+      "required": false
+     }
+    ]
+   },
+   {
+    "name": "games",
+    "description": "List simultaneous pending and running blitz games in this server",
+    "type": 1,
+    "options": [
+     {
+      "type": 4,
+      "name": "page",
+      "description": "…",
+      "required": false,
+      "min_value": 1,
+      "max_value": 1000
+     }
+    ]
+   },
+   {
+    "name": "check",
+    "description": "Request a Codeforces solve check for your running game",
+    "type": 1,
+    "options": [
+     {
+      "type": 3,
+      "name": "match_id",
+      "description": "…",
+      "required": false
+     }
+    ]
+   },
+   {
+    "name": "standings",
+    "description": "Show verified solve times and ranks for your game",
+    "type": 1,
+    "options": [
+     {
+      "type": 3,
+      "name": "match_id",
+      "description": "…",
+      "required": false
+     }
+    ]
+   },
+   {
+    "name": "cancel",
+    "description": "Cancel your game, decline an invite, or retry voice recovery",
+    "type": 1,
+    "options": [
+     {
+      "type": 3,
+      "name": "match_id",
+      "description": "…",
+      "required": false
+     }
+    ]
+   },
+   {
+    "name": "time",
+    "description": "Organizer: set total duration; omit minutes to remove the time limit",
+    "type": 1,
+    "options": [
+     {
+      "type": 3,
+      "name": "match_id",
+      "description": "…",
+      "required": true
+     },
+     {
+      "type": 4,
+      "name": "minutes",
+      "description": "…",
+      "required": false,
+      "min_value": 1,
+      "max_value": 180
+     }
+    ]
+   },
+   {
+    "name": "recover",
+    "description": "Organizer: retry cleanup of interrupted or finished blitz games",
+    "type": 1,
+    "options": []
+   }
+  ],
+  "nsfw": false,
+  "dm_permission": true,
+  "default_member_permissions": null,
+  "contexts": [
+   0
+  ],
+  "integration_types": [
+   0
+  ]
+ },
+ {
+  "name": "tournament",
+  "description": "Blitz signup, brackets, and tournament management",
+  "type": 1,
+  "options": [
+   {
+    "name": "create",
+    "description": "Organizer: create a single-elimination Blitz tournament with signup buttons",
+    "type": 1,
+    "options": [
+     {
+      "type": 3,
+      "name": "name",
+      "description": "…",
+      "required": true,
+      "min_length": 1,
+      "max_length": 80
+     },
+     {
+      "type": 4,
+      "name": "capacity",
+      "description": "…",
+      "required": false,
+      "min_value": 2,
+      "max_value": 32
+     },
+     {
+      "type": 4,
+      "name": "minutes",
+      "description": "Minutes per duel; omit for unlimited time",
+      "required": false,
+      "min_value": 1,
+      "max_value": 180
+     },
+     {
+      "type": 4,
+      "name": "rating",
+      "description": "…",
+      "required": false,
+      "autocomplete": true,
+      "min_value": 800,
+      "max_value": 3500
+     },
+     {
+      "type": 3,
+      "name": "topics",
+      "description": "Comma-separated topics, e.g. dp,graphs; matches ANY selected topic",
+      "required": false,
+      "autocomplete": true
+     },
+     {
+      "type": 5,
+      "name": "random_topic",
+      "description": "…",
+      "required": false
+     },
+     {
+      "type": 3,
+      "name": "voice_mode",
+      "description": "…",
+      "required": false,
+      "choices": [
+       {
+        "name": "none",
+        "value": "none"
+       },
+       {
+        "name": "mute",
+        "value": "mute"
+       },
+       {
+        "name": "deafen",
+        "value": "deafen"
+       },
+       {
+        "name": "both",
+        "value": "both"
+       }
+      ]
+     },
+     {
+      "type": 7,
+      "name": "voice_channel",
+      "description": "…",
+      "required": false,
+      "channel_types": [
+       2
+      ]
+     },
+     {
+      "type": 5,
+      "name": "move_voice",
+      "description": "…",
+      "required": false
+     },
+     {
+      "type": 6,
+      "name": "manager",
+      "description": "…",
+      "required": false
+     }
+    ]
+   },
+   {
+    "name": "join",
+    "description": "Join a tournament before registration closes",
+    "type": 1,
+    "options": [
+     {
+      "type": 3,
+      "name": "tournament_id",
+      "description": "…",
+      "required": true
+     }
+    ]
+   },
+   {
+    "name": "leave",
+    "description": "Leave a tournament before its bracket starts",
+    "type": 1,
+    "options": [
+     {
+      "type": 3,
+      "name": "tournament_id",
+      "description": "…",
+      "required": true
+     }
+    ]
+   },
+   {
+    "name": "start",
+    "description": "Host/manager: close signup and create a randomly seeded bracket",
+    "type": 1,
+    "options": [
+     {
+      "type": 3,
+      "name": "tournament_id",
+      "description": "…",
+      "required": true
+     }
+    ]
+   },
+   {
+    "name": "bracket",
+    "description": "Show the current bracket, or a previous round",
+    "type": 1,
+    "options": [
+     {
+      "type": 3,
+      "name": "tournament_id",
+      "description": "…",
+      "required": true
+     },
+     {
+      "type": 4,
+      "name": "round_no",
+      "description": "…",
+      "required": false,
+      "min_value": 1,
+      "max_value": 5
+     }
+    ]
+   },
+   {
+    "name": "list",
+    "description": "List open tournaments in this server",
+    "type": 1,
+    "options": []
+   },
+   {
+    "name": "retry",
+    "description": "Host/manager: retry a blocked match with a fresh invitation and problem",
+    "type": 1,
+    "options": [
+     {
+      "type": 3,
+      "name": "tournament_id",
+      "description": "…",
+      "required": true
+     },
+     {
+      "type": 4,
+      "name": "round_no",
+      "description": "…",
+      "required": true,
+      "min_value": 1,
+      "max_value": 5
+     },
+     {
+      "type": 4,
+      "name": "match",
+      "description": "…",
+      "required": true,
+      "min_value": 1,
+      "max_value": 16
+     }
+    ]
+   },
+   {
+    "name": "resolve",
+    "description": "Host/manager: explicitly resolve a blocked match, including a draw or forfeit",
+    "type": 1,
+    "options": [
+     {
+      "type": 3,
+      "name": "tournament_id",
+      "description": "…",
+      "required": true
+     },
+     {
+      "type": 4,
+      "name": "round_no",
+      "description": "…",
+      "required": true,
+      "min_value": 1,
+      "max_value": 5
+     },
+     {
+      "type": 4,
+      "name": "match",
+      "description": "…",
+      "required": true,
+      "min_value": 1,
+      "max_value": 16
+     },
+     {
+      "type": 6,
+      "name": "winner",
+      "description": "…",
+      "required": true
+     }
+    ]
+   },
+   {
+    "name": "cancel",
+    "description": "Host/manager: cancel a tournament and release its running Blitz games",
+    "type": 1,
+    "options": [
+     {
+      "type": 3,
+      "name": "tournament_id",
+      "description": "…",
+      "required": true
+     }
+    ]
+   }
+  ],
+  "nsfw": false,
+  "dm_permission": true,
+  "default_member_permissions": null,
+  "contexts": [
+   0
+  ],
+  "integration_types": [
+   0
+  ]
+ },
+ {
+  "name": "activity",
+  "description": "Open the shared Blitz tournament activity in your voice room",
+  "type": 1,
+  "options": [
+   {
+    "type": 3,
+    "name": "tournament_id",
+    "description": "…",
+    "required": false
+   }
+  ],
+  "nsfw": false,
+  "dm_permission": true,
+  "default_member_permissions": null,
+  "contexts": [
+   0
+  ],
+  "integration_types": [
+   0
+  ]
+ }
+]
