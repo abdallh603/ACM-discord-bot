@@ -10,7 +10,7 @@ from just_bot.activity_server import ActivityService, DiscordGateway, ActivityEr
 from just_bot.activity_demo import DemoActivity
 from just_bot.activity_launch import launch_activity, register_entrypoint
 from just_bot.core.domain import UserError
-import tests.test_tournament as fixtures
+import extensions.tournament.tests.test_tournament as fixtures
 
 
 class Gateway:

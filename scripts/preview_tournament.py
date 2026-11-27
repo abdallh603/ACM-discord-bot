@@ -4,7 +4,7 @@ import sys
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
-from just_bot.tournament_image import render_tournament
+from extensions.tournament.image import render_tournament
 
 
 def sample():

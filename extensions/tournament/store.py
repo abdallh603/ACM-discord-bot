@@ -1,42 +1,45 @@
-"""Durable single-elimination brackets, sharing the existing SQLite connection."""
+"""Durable single-elimination brackets, sharing the main SQLite connection."""
 from __future__ import annotations
 
 import json
 
-from .core.domain import UserError
+from just_bot.core.api import UserError
 
-TOURNAMENT_SCHEMA = """
-CREATE TABLE IF NOT EXISTS tournaments (
+# Append-only: entry i upgrades schema version i to i + 1.
+MIGRATIONS = [
+    """
+CREATE TABLE tournament_events (
     id TEXT PRIMARY KEY, guild_id INTEGER NOT NULL, creator_id INTEGER NOT NULL,
     name TEXT NOT NULL, state TEXT NOT NULL, options TEXT NOT NULL,
     capacity INTEGER NOT NULL, current_round INTEGER NOT NULL DEFAULT 0,
     champion_id INTEGER, channel_id INTEGER NOT NULL, message_id INTEGER,
     created_at INTEGER NOT NULL, needs_update INTEGER NOT NULL DEFAULT 1
 );
-CREATE INDEX IF NOT EXISTS tournaments_guild_state ON tournaments(guild_id,state);
-CREATE TABLE IF NOT EXISTS tournament_entries (
+CREATE INDEX tournament_events_guild_state ON tournament_events(guild_id,state);
+CREATE TABLE tournament_entries (
     tournament_id TEXT NOT NULL, user_id INTEGER NOT NULL, handle TEXT NOT NULL COLLATE NOCASE,
     PRIMARY KEY(tournament_id,user_id), UNIQUE(tournament_id,handle)
 );
-CREATE TABLE IF NOT EXISTS tournament_slots (
+CREATE TABLE tournament_slots (
     guild_id INTEGER NOT NULL, user_id INTEGER NOT NULL, handle TEXT NOT NULL COLLATE NOCASE,
     tournament_id TEXT NOT NULL, PRIMARY KEY(guild_id,user_id), UNIQUE(guild_id,handle)
 );
-CREATE TABLE IF NOT EXISTS tournament_pairs (
+CREATE TABLE tournament_pairs (
     tournament_id TEXT NOT NULL, round_no INTEGER NOT NULL, position INTEGER NOT NULL,
     player_a INTEGER, player_b INTEGER, winner_id INTEGER, state TEXT NOT NULL,
     blitz_id TEXT, attempt INTEGER NOT NULL DEFAULT 1, note TEXT NOT NULL DEFAULT '',
     PRIMARY KEY(tournament_id,round_no,position)
 );
-"""
+""",
+]
 
 
 class TournamentStore:
-    def __init__(self, store):
-        self.db = store.db
+    def __init__(self, db):
+        self.db = db
 
     def get(self, guild, tournament_id):
-        row = self.db.execute("SELECT * FROM tournaments WHERE guild_id=? AND id=?",
+        row = self.db.execute("SELECT * FROM tournament_events WHERE guild_id=? AND id=?",
                               (guild, tournament_id)).fetchone()
         if row is None:
             raise UserError("Tournament not found in this server.")
@@ -46,8 +49,21 @@ class TournamentStore:
 
     def active(self, guild):
         return [self.get(guild, r[0]) for r in self.db.execute(
-            "SELECT id FROM tournaments WHERE guild_id=? AND state IN ('registration','running','cancelling') ORDER BY created_at,id",
+            "SELECT id FROM tournament_events WHERE guild_id=? AND state IN ('registration','running','cancelling') ORDER BY created_at,id",
             (guild,),
+        ).fetchall()]
+
+    def recent(self, guild, limit=100):
+        """The server's newest tournaments in any state (e.g. for the Activity's selector)."""
+        return [self.get(guild, r[0]) for r in self.db.execute(
+            "SELECT id FROM tournament_events WHERE guild_id=? ORDER BY created_at DESC LIMIT ?", (guild, limit),
+        ).fetchall()]
+
+    def restorable(self):
+        """Open tournaments with a posted panel whose buttons must be re-registered after a restart."""
+        return [self.get(r[0], r[1]) for r in self.db.execute(
+            "SELECT guild_id,id FROM tournament_events WHERE message_id IS NOT NULL "
+            "AND state IN ('registration','running','cancelling')"
         ).fetchall()]
 
     def entries(self, tournament_id):
@@ -57,7 +73,7 @@ class TournamentStore:
 
     def pending(self, guild):
         return [self.get(guild, r[0]) for r in self.db.execute(
-            "SELECT id FROM tournaments WHERE guild_id=? AND (state IN ('registration','running','cancelling') OR needs_update=1)",
+            "SELECT id FROM tournament_events WHERE guild_id=? AND (state IN ('registration','running','cancelling') OR needs_update=1)",
             (guild,),
         ).fetchall()]
 
@@ -81,7 +97,7 @@ class TournamentStore:
         if not changes.keys() <= {"state", "current_round", "champion_id", "message_id"}:
             raise ValueError("Invalid tournament field")
         with self.db:
-            self.db.execute("UPDATE tournaments SET needs_update=1," + ", ".join(f"{key}=?" for key in changes)
+            self.db.execute("UPDATE tournament_events SET needs_update=1," + ", ".join(f"{key}=?" for key in changes)
                             + " WHERE id=?", (*changes.values(), tournament_id))
 
     def update_pair(self, pair, **changes):
@@ -103,7 +119,7 @@ class TournamentStore:
                     "VALUES (?,?,?,?,?,?,?,?)", (tournament_id, round_no, position + 1, a, b,
                     (a or b) if bye else None, "done" if bye else "ready", "Bye" if bye else ""),
                 )
-            self.db.execute("UPDATE tournaments SET current_round=?,state='running' WHERE id=?",
+            self.db.execute("UPDATE tournament_events SET current_round=?,state='running' WHERE id=?",
                             (round_no, tournament_id))
 
     def release(self, tournament_id, user=None):

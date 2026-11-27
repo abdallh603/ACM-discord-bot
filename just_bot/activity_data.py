@@ -50,12 +50,8 @@ class ActivityData:
 
     def visible(self, context, member):
         guild = member.guild
-        tournaments = [dict(r) for r in self.db.execute(
-            "SELECT id FROM tournaments WHERE guild_id=? ORDER BY created_at DESC LIMIT 100", (context["guild_id"],)
-        ).fetchall()]
         result = []
-        for row in tournaments:
-            tournament = self.bot.tournaments.data.get(context["guild_id"], row["id"])
+        for tournament in self.bot.tournaments.data.recent(context["guild_id"], 100):
             channel = guild.get_channel(tournament["channel_id"])
             if channel and channel.permissions_for(member).view_channel:
                 result.append(tournament)

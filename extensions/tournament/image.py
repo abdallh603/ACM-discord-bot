@@ -10,7 +10,7 @@ from collections import OrderedDict
 import discord
 from PIL import Image, ImageDraw, ImageOps
 
-from .core.images import MAX_AVATAR_BYTES, draw_avatar, fetch_avatar, fitted_text, font
+from just_bot.core.api import MAX_AVATAR_BYTES, draw_avatar, fetch_avatar, fitted_text, font
 
 BACKGROUND = "#0c1320"
 PANEL = "#172236"
@@ -168,14 +168,14 @@ def thumbnail(raw):
 
 
 class TournamentPictures:
-    def __init__(self, bot):
-        self.bot = bot
+    def __init__(self, runtime):
+        self.runtime = runtime
         self.cache = OrderedDict()
         self.downloads = asyncio.Semaphore(4)
         self.renders = asyncio.Semaphore(1)
 
     async def identities(self, tournament, entries):
-        guild = self.bot.get_guild(tournament["guild_id"])
+        guild = self.runtime.get_guild(tournament["guild_id"])
         result, missing = {}, []
         for entry in entries:
             key = (tournament["guild_id"], entry["user_id"], entry["handle"].casefold())
@@ -202,7 +202,7 @@ class TournamentPictures:
                     pass
 
         async def codeforces_identities():
-            cf = getattr(self.bot, "cf", None)
+            cf = getattr(self.runtime, "cf", None)
             if cf is None:
                 return
             try:

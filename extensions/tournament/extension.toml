@@ -1,0 +1,6 @@
+name = "tournament"
+version = "1.0.0"
+description = "Single-elimination Blitz tournaments with signup panels and live bracket images"
+requires = ["blitz"]
+permissions = ["view_channel", "send_messages", "embed_links", "attach_files"]
+default_enabled = true

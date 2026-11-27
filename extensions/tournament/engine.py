@@ -9,9 +9,10 @@ import sqlite3
 import time
 import uuid
 
-from extensions.blitz.engine import TERMINAL, UNSET, validate_options  # TRANSITIONAL
-from .core.domain import UserError, problem_key
-from .tournament_store import TournamentStore
+from extensions.blitz.engine import TERMINAL, UNSET, validate_options
+from just_bot.core.api import UserError, problem_key
+
+from .store import TournamentStore
 
 log = logging.getLogger(__name__)
 
@@ -25,9 +26,9 @@ def seed_order(size):
 
 
 class Tournaments:
-    def __init__(self, community, blitz, platform):
+    def __init__(self, community, blitz, platform, store: TournamentStore | None = None):
         self.community, self.blitz, self.platform = community, blitz, platform
-        self.data = TournamentStore(community.store)
+        self.data = store or TournamentStore(community.store.db)
         self.locks, self.jobs = {}, {}
 
     def lock(self, tournament_id):
@@ -63,7 +64,7 @@ class Tournaments:
             delivered = await self.platform.update(tournament)
             if delivered is not False:
                 with self.data.db:
-                    self.data.db.execute("UPDATE tournaments SET needs_update=0 WHERE id=?", (tournament["id"],))
+                    self.data.db.execute("UPDATE tournament_events SET needs_update=0 WHERE id=?", (tournament["id"],))
         except Exception:
             log.warning("Tournament panel update deferred for %s", tournament["id"], exc_info=True)
 
@@ -79,7 +80,7 @@ class Tournaments:
         tournament_id = uuid.uuid4().hex[:12]
         with self.data.db:
             self.data.db.execute(
-                "INSERT INTO tournaments(id,guild_id,creator_id,name,state,options,capacity,channel_id,created_at) "
+                "INSERT INTO tournament_events(id,guild_id,creator_id,name,state,options,capacity,channel_id,created_at) "
                 "VALUES (?,?,?,?,'registration',?,?,?,?)",
                 (tournament_id, guild, creator, name, json.dumps(options), capacity, channel, int(time.time())),
             )
@@ -96,10 +97,7 @@ class Tournaments:
             if len(entries) >= tournament["capacity"]:
                 raise UserError("This tournament is full.")
             member = self.community.require_member(guild, user)
-            if self.data.db.execute(
-                "SELECT 1 FROM blitz_slots WHERE guild_id=? AND (user_id=? OR handle=?)",
-                (guild, user, member["handle"]),
-            ).fetchone():
+            if self.blitz.data.reserved(guild, user, member["handle"]):
                 raise UserError("Finish your current Blitz invite/game or voice recovery before joining.")
             try:
                 with self.data.db:
@@ -194,7 +192,7 @@ class Tournaments:
             await self.blitz.cancel(tournament["guild_id"], match["id"], tournament["creator_id"])
         with self.data.db:
             self.data.db.execute("DELETE FROM tournament_slots WHERE tournament_id=?", (tournament["id"],))
-            self.data.db.execute("UPDATE tournaments SET state='cancelled',needs_update=1 WHERE id=?", (tournament["id"],))
+            self.data.db.execute("UPDATE tournament_events SET state='cancelled',needs_update=1 WHERE id=?", (tournament["id"],))
 
     async def tick(self, guild):
         for tournament in self.data.pending(guild):
@@ -237,7 +235,7 @@ class Tournaments:
                 winners = [p["winner_id"] for p in pairs]
                 if len(winners) == 1:
                     with self.data.db:
-                        self.data.db.execute("UPDATE tournaments SET state='finished',champion_id=?,needs_update=1 WHERE id=?",
+                        self.data.db.execute("UPDATE tournament_events SET state='finished',champion_id=?,needs_update=1 WHERE id=?",
                                              (winners[0], tournament_id))
                         self.data.db.execute("DELETE FROM tournament_slots WHERE tournament_id=?", (tournament_id,))
                 else:
@@ -245,10 +243,7 @@ class Tournaments:
             await self.notify(self.data.get(guild, tournament_id))
 
     def linked_matches(self, guild, tournament_id):
-        rows = self.data.db.execute("SELECT id FROM blitz_matches WHERE guild_id=? AND options LIKE ?",
-                                    (guild, f'%"tournament_id": "{tournament_id}"%')).fetchall()
-        matches = [self.blitz.data.match(guild, row[0]) for row in rows]
-        return [m for m in matches if m["options"].get("tournament_id") == tournament_id]
+        return self.blitz.data.with_option(guild, "tournament_id", tournament_id)
 
     async def launch(self, tournament, pair):
         tid, guild = tournament["id"], tournament["guild_id"]

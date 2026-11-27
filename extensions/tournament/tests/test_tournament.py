@@ -5,7 +5,9 @@ from extensions.blitz.engine import Blitz
 from just_bot.core.domain import UserError
 from just_bot.core.service import Community
 from just_bot.core.storage import Store
-from just_bot.tournament import Tournaments, seed_order
+from extensions.tournament.engine import Tournaments, seed_order
+from extensions.tournament.store import MIGRATIONS
+from just_bot.core.schema import migrate
 from extensions.blitz.tests.support import FakeVoice, blitz_store
 from tests.support import problem, submission
 
@@ -32,6 +34,7 @@ class TournamentTests(unittest.IsolatedAsyncioTestCase):
     async def asyncSetUp(self):
         self.store = Store(":memory:")
         self.activities = blitz_store(self.store)
+        migrate(self.store.db, "tournament", MIGRATIONS)
         for guild in (10, 20):
             for user in range(1, 34):
                 handle = f"player{user}"

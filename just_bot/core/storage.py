@@ -4,7 +4,6 @@ import sqlite3
 from pathlib import Path
 from zoneinfo import ZoneInfo
 
-from ..tournament_store import TOURNAMENT_SCHEMA
 from . import schema
 from .domain import UserError
 
@@ -47,7 +46,6 @@ class Store:
                     "migrated. Point DATABASE_PATH at a new file, or delete the old database."
                 )
             schema.migrate(self.db, "core", CORE_MIGRATIONS)
-            self.db.executescript(TOURNAMENT_SCHEMA)  # TRANSITIONAL until tournaments move
         except BaseException:
             self.db.close()
             raise

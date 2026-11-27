@@ -5,7 +5,7 @@ from unittest.mock import AsyncMock, patch
 
 from PIL import Image
 
-from just_bot.tournament_image import TournamentPictures, bracket_nodes, render_tournament, status
+from extensions.tournament.image import TournamentPictures, bracket_nodes, render_tournament, status
 from tests.support import avatar
 
 
@@ -76,7 +76,7 @@ class TournamentImageTests(unittest.IsolatedAsyncioTestCase):
         cf = SimpleNamespace(users=AsyncMock(return_value=[{"handle": "cf1", "avatar": "https://userpic.codeforces.org/a.png"}]))
         pictures = TournamentPictures(SimpleNamespace(get_guild=lambda gid: guild, cf=cf))
         tournament, entries, pairs, identities = bracket(2)
-        with patch("just_bot.tournament_image.fetch_avatar", return_value=avatar("blue")):
+        with patch("extensions.tournament.image.fetch_avatar", return_value=avatar("blue")):
             first = await pictures.identities(tournament, entries[:1])
             second = await pictures.identities(tournament, entries[:1])
         self.assertEqual(first, second)

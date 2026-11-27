@@ -12,38 +12,30 @@ from .core.extensions import ExtensionContext, Manifest
 
 
 def install_legacy(bot):
-    if "blitz" not in bot.extensions.apis:
-        return  # tournaments and the Activity need the blitz extension
+    if "tournament" not in bot.extensions.apis:
+        return  # the Activity needs the tournament and blitz extensions
     ext = ExtensionContext(bot, Manifest("legacy", "0", "Features not yet moved", None, __name__), bot.extensions)
-    install_tournament(ext)
     install_activity(ext)
-
-
-# -- tournaments -------------------------------------------------------------------------
-def install_tournament(ext):
-    from .tournament import Tournaments
-    from .tournament_commands import DiscordTournaments, TournamentCommands
-    bot = ext.bot
-    blitz = bot.extensions.api("blitz")
-    bot.blitz_runtime, bot.blitz, bot.activities = blitz, blitz.engine, blitz.store
-    bot.tournaments = Tournaments(bot.community, bot.blitz, DiscordTournaments(bot))
-    blitz.add_reservation_check(bot.tournaments.check_reservation)
-    blitz.on_tick(bot.tournaments.tick)
-    ext.add_command(TournamentCommands(bot), order=120)
-    ext.help("`/tournament create` — organizer: signup buttons, 2–32 players, automatic brackets",
-             block="events", order=10)
-    ext.help("`/tournament list` / `bracket` — view events; `retry` / `resolve` — manager decisions",
-             block="events", order=20)
-    ext.help("Each tournament duel has Accept buttons and the Blitz countdown.", block="events", order=30)
 
 
 # -- voice activity ----------------------------------------------------------------------
 def install_activity(ext):
     from .activity_data import ActivityData
     from .activity_launch import launch_activity
+    from .core.domain import UserError
     bot = ext.bot
+    tournaments = bot.extensions.api("tournament")
+    blitz = tournaments.blitz
+    bot.tournaments, bot.blitz, bot.activities = tournaments.engine, blitz.engine, blitz.store
     bot.activity_data = ActivityData(bot)
     bot.activity_runner = None
+    if bot.settings.activity_enabled:
+        async def open_activity(interaction, panel):
+            if interaction.guild_id != panel.guild_id:
+                raise UserError("This tournament belongs to another server.")
+            await launch_activity(bot, interaction, panel.tid)
+        tournaments.add_panel_button("activity", "Open voice activity", open_activity,
+                                     style=discord.ButtonStyle.primary, row=1)
 
     @app_commands.command(name="activity", description="Open the shared Blitz tournament activity in your voice room")
     async def activity(interaction: discord.Interaction, tournament_id: str | None = None):
@@ -59,8 +51,6 @@ def install_activity(ext):
             ready, message = sdk_status()
             if not ready:
                 raise ValueError(message)
-        from .tournament_commands import restore_tournaments
-        restore_tournaments(bot)
 
     async def started():
         if bot.settings.activity_enabled:
@@ -76,10 +66,6 @@ def install_activity(ext):
             runner, bot.activity_runner = bot.activity_runner, None
             await runner.cleanup()
 
-    async def shutdown():
-        await bot.tournaments.close()
-
     ext.on_startup(startup)
     ext.on_started(started)
     ext.on_stopping(stopping)
-    ext.on_shutdown(shutdown)
