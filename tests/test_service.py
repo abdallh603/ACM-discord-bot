@@ -3,10 +3,10 @@ import unittest
 from datetime import datetime, timedelta
 from unittest.mock import AsyncMock
 
-from just_bot.domain import AMMAN, UserError
-from just_bot.service import Community
-from just_bot.storage import Store
-from test_domain import problem, submission
+from just_bot.core.domain import AMMAN, UserError
+from just_bot.core.service import Community
+from just_bot.core.storage import Store
+from tests.support import problem, submission
 
 
 class CommunityTests(unittest.IsolatedAsyncioTestCase):

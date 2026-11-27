@@ -7,7 +7,7 @@ import discord
 from PIL import Image
 
 from just_bot.tournament_commands import ASSETS, DiscordTournaments, TournamentCommands, TournamentPanel, restore_tournaments, tournament_embed
-import test_tournament as fixtures
+import tests.test_tournament as fixtures
 
 
 class TournamentUITests(unittest.IsolatedAsyncioTestCase):
@@ -36,7 +36,7 @@ class TournamentUITests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(self.engine.data.entries(self.event["id"]), [])
 
     async def test_cross_server_and_unprivileged_management_buttons_are_rejected(self):
-        from just_bot.domain import UserError
+        from just_bot.core.domain import UserError
         for action in ("start", "cancel"):
             with self.assertRaises(UserError):
                 await self.view.act(self.interaction, action)

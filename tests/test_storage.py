@@ -2,8 +2,8 @@ import tempfile
 import unittest
 from pathlib import Path
 
-from just_bot.domain import UserError
-from just_bot.storage import Store
+from just_bot.core.domain import UserError
+from just_bot.core.storage import Store
 
 
 class StoreTests(unittest.TestCase):

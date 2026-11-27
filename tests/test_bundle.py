@@ -14,8 +14,8 @@ FIXTURES = Path(__file__).with_name("fixtures")
 
 
 def make_bot():
-    from just_bot.bot import RoundForgeBot
-    from just_bot.config import Settings
+    from just_bot.core.bot import RoundForgeBot
+    from just_bot.core.config import Settings
     return RoundForgeBot(Settings("test-token", None, Path(":memory:"), frozenset(), "INFO"))
 
 

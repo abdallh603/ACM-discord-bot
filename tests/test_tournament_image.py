@@ -6,7 +6,7 @@ from unittest.mock import AsyncMock, patch
 from PIL import Image
 
 from just_bot.tournament_image import TournamentPictures, bracket_nodes, render_tournament, status
-from test_profile_card import avatar
+from tests.support import avatar
 
 
 def bracket(count=8):

@@ -7,12 +7,12 @@ from typing import Literal
 import discord
 from discord import app_commands
 
-from .domain import UserError, problem_key, problem_url
+from .core.domain import UserError, problem_key, problem_url
 from .blitz_options import VOICE_LABELS, duration_label, voice_mode as selected_voice_mode
 from .blitz_options import parse_mentions
-from .command_options import rating_choices, topic_choices
+from .core.options import rating_choices, topic_choices
 from .practice import TRACKS
-from .presentation import embed, safe
+from .core.presentation import embed, safe
 
 
 def goal_lines(problems, solved):

@@ -10,7 +10,7 @@ import time
 import uuid
 
 from .blitz import TERMINAL, UNSET, validate_options
-from .domain import UserError, problem_key
+from .core.domain import UserError, problem_key
 from .tournament_store import TournamentStore
 
 log = logging.getLogger(__name__)

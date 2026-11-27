@@ -3,7 +3,7 @@ from __future__ import annotations
 
 import discord
 
-from .domain import UserError
+from .core.domain import UserError
 
 
 async def launch_activity(bot, interaction, tournament_id=None):

@@ -5,7 +5,7 @@ import random
 import time
 
 from .activities_store import Activities
-from .domain import UserError, accepted_submission, problem_key
+from .core.domain import UserError, accepted_submission, problem_key
 
 TRACKS = {
     "fundamentals": {

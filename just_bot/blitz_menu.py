@@ -5,9 +5,10 @@ import logging
 
 import discord
 
-from .blitz_options import RATINGS, TOPICS, VOICE_LABELS, duration_label, page_items
-from .domain import UserError
-from .presentation import embed, safe
+from .blitz_options import VOICE_LABELS, duration_label, page_items
+from .core.options import RATINGS, TOPICS
+from .core.domain import UserError
+from .core.presentation import embed, safe
 
 log = logging.getLogger(__name__)
 TOPIC_CHOICES = [("any", "Any topic"), ("random", "Random topic")] + [(t, t) for t in TOPICS]

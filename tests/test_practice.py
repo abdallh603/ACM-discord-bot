@@ -2,11 +2,11 @@ import unittest
 from unittest.mock import AsyncMock
 
 from just_bot.activities_store import Activities
-from just_bot.domain import UserError, problem_key
+from just_bot.core.domain import UserError, problem_key
 from just_bot.practice import Practice
-from just_bot.service import Community
-from just_bot.storage import Store
-from test_domain import problem, submission
+from just_bot.core.service import Community
+from just_bot.core.storage import Store
+from tests.support import problem, submission
 
 
 class PracticeTests(unittest.IsolatedAsyncioTestCase):

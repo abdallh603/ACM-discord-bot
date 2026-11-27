@@ -17,7 +17,7 @@ import aiohttp
 from aiohttp import web
 
 from .activity_data import ActivityData
-from .domain import UserError
+from .core.domain import UserError
 
 log = logging.getLogger(__name__)
 STATIC = Path(__file__).with_name("activity_web")

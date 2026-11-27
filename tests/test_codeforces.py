@@ -3,7 +3,7 @@ import time
 import unittest
 from unittest.mock import AsyncMock, patch
 
-from just_bot.codeforces import Codeforces, CodeforcesError
+from just_bot.core.codeforces import Codeforces, CodeforcesError
 
 
 class CodeforcesTests(unittest.IsolatedAsyncioTestCase):
@@ -41,7 +41,7 @@ class CodeforcesTests(unittest.IsolatedAsyncioTestCase):
             {"status": "OK", "result": [1]},
         ])
         client = Codeforces(transport=transport, interval=0)
-        with patch("just_bot.codeforces.asyncio.sleep", new_callable=AsyncMock):
+        with patch("just_bot.core.codeforces.asyncio.sleep", new_callable=AsyncMock):
             self.assertEqual(await client.call("test"), [1])
         self.assertEqual(transport.await_count, 2)
 
@@ -54,7 +54,7 @@ class CodeforcesTests(unittest.IsolatedAsyncioTestCase):
 
     async def test_malformed_json_retries_and_fails_cleanly(self):
         client = Codeforces(transport=AsyncMock(side_effect=ValueError("bad JSON")), interval=0)
-        with patch("just_bot.codeforces.asyncio.sleep", new_callable=AsyncMock):
+        with patch("just_bot.core.codeforces.asyncio.sleep", new_callable=AsyncMock):
             with self.assertRaisesRegex(CodeforcesError, "Could not reach"):
                 await client.call("test")
 

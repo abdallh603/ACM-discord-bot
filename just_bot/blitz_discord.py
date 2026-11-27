@@ -10,8 +10,8 @@ from .blitz import TERMINAL
 from .blitz_options import VOICE_LABELS, voice_mode
 from .blitz_rooms import choose_voice_room, owns_room
 from .blitz_views import BlitzPanel, standings_embed
-from .domain import UserError
-from .presentation import embed, problem_embed
+from .core.domain import UserError
+from .core.presentation import embed, problem_embed
 
 log = logging.getLogger(__name__)
 

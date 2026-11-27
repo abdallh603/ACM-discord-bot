@@ -6,7 +6,7 @@ import sqlite3
 import time
 import uuid
 
-from .domain import UserError
+from .core.domain import UserError
 from .tournament_store import TOURNAMENT_SCHEMA
 
 ACTIVITY_SCHEMA = """

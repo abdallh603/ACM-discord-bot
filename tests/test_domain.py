@@ -2,7 +2,7 @@ import random
 import unittest
 from datetime import date, datetime, timezone
 
-from just_bot.domain import (
+from just_bot.core.domain import (
     AMMAN,
     UserError,
     accepted_submission,
@@ -12,16 +12,7 @@ from just_bot.domain import (
     upcoming_contests,
     validate_handle,
 )
-
-
-def problem(contest=100, index="A", rating=1200, tags=None):
-    return {"contestId": contest, "index": index, "rating": rating, "name": "Example",
-            "type": "PROGRAMMING", "tags": tags or ["dp"]}
-
-
-def submission(stamp, *, verdict="OK", kind="PRACTICE", members=1, sid=1):
-    return {"id": sid, "creationTimeSeconds": stamp, "verdict": verdict, "problem": problem(),
-            "author": {"participantType": kind, "members": [{"handle": "tester"}] * members}}
+from tests.support import problem, submission
 
 
 class DomainTests(unittest.TestCase):

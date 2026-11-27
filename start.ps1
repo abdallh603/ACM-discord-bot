@@ -29,7 +29,7 @@ if (-not (Test-Path -LiteralPath '.env')) {
 }
 
 Write-Host 'Checking the bot before connecting...'
-& $botPython -m unittest discover -s tests
+& $botPython -m unittest discover
 if ($LASTEXITCODE -ne 0) { throw 'The checks failed. The bot has not been started.' }
 
 Write-Host 'Starting RoundForge. Keep this window open; press Ctrl+C to stop.'

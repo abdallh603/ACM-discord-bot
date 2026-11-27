@@ -3,7 +3,7 @@ from __future__ import annotations
 
 import json
 
-from .domain import UserError
+from .core.domain import UserError
 
 TOURNAMENT_SCHEMA = """
 CREATE TABLE IF NOT EXISTS tournaments (

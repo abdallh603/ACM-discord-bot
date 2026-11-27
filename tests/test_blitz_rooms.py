@@ -1,7 +1,7 @@
 import unittest
 
 from just_bot.blitz_rooms import choose_voice_room, owns_room
-from just_bot.domain import UserError
+from just_bot.core.domain import UserError
 
 
 class RoomPolicyTests(unittest.TestCase):

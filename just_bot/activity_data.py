@@ -5,7 +5,7 @@ import base64
 import time
 
 from .blitz_options import voice_mode
-from .domain import UserError
+from .core.domain import UserError
 
 ACTIVITY_SCHEMA = """
 CREATE TABLE IF NOT EXISTS activity_rooms (

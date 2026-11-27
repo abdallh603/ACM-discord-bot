@@ -14,8 +14,8 @@ HAS_DISCORD = importlib.util.find_spec("discord") is not None
 @unittest.skipUnless(HAS_DISCORD, "Install requirements.txt to test Discord command registration")
 class CommandTests(unittest.IsolatedAsyncioTestCase):
     async def asyncSetUp(self):
-        from just_bot.bot import RoundForgeBot
-        from just_bot.config import Settings
+        from just_bot.core.bot import RoundForgeBot
+        from just_bot.core.config import Settings
         self.bot = RoundForgeBot(Settings("test-token", 10, Path(":memory:"), frozenset({20}), "INFO"))
 
     async def asyncTearDown(self):

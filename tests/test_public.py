@@ -6,16 +6,18 @@ from pathlib import Path
 from types import SimpleNamespace
 from unittest.mock import AsyncMock, MagicMock, patch
 
+from discord.ext import tasks
+
 from just_bot.activities_store import Activities
 from just_bot.blitz import Blitz
-from just_bot.bot import RoundForgeBot
-from just_bot.command_options import rating_choices, timezone_choices, topic_choices
-from just_bot.config import Settings
-from just_bot.domain import UserError
-from just_bot.service import Community
-from just_bot.storage import Store
-from test_blitz import FakeVoice
-from test_domain import problem
+from just_bot.core.bot import RoundForgeBot
+from just_bot.core.options import rating_choices, timezone_choices, topic_choices
+from just_bot.core.config import Settings
+from just_bot.core.domain import UserError
+from just_bot.core.service import Community
+from just_bot.core.storage import Store
+from tests.test_blitz import FakeVoice
+from tests.support import problem
 
 
 class PublicBotTests(unittest.IsolatedAsyncioTestCase):
@@ -56,24 +58,27 @@ class PublicBotTests(unittest.IsolatedAsyncioTestCase):
 
     async def test_global_sync_does_not_copy_commands_to_one_server(self):
         self.bot.tree.sync = AsyncMock(return_value=[])
-        with patch.object(self.bot.feeds, "start"), patch.object(self.bot.hourly_refresh, "start"), patch.object(self.bot.blitz_clock, "start"):
+        with patch.object(tasks.Loop, "start") as start:
             await self.bot.setup_hook()
         self.bot.tree.sync.assert_awaited_once_with()
+        self.assertEqual(start.call_count, 1 + len(self.bot.extensions.loops))
 
     async def test_background_feeds_and_refresh_cover_every_server(self):
         guilds = [SimpleNamespace(id=10), SimpleNamespace(id=11)]
         self.bot.active_guilds = lambda: guilds
-        self.bot.feeds_for = AsyncMock()
+        feeds = self.bot.daily_feeds
+        feeds.feeds_for = AsyncMock()
         self.bot.request_refresh = MagicMock()
-        await self.bot.feeds.coro(self.bot)
+        await feeds.feeds()
         await self.bot.hourly_refresh.coro(self.bot)
-        self.assertEqual([c.args[0].id for c in self.bot.feeds_for.await_args_list], [10, 11])
+        self.assertEqual([c.args[0].id for c in feeds.feeds_for.await_args_list], [10, 11])
         self.assertEqual([c.args[0].id for c in self.bot.request_refresh.call_args_list], [10, 11])
 
     async def test_lock_and_status_state_are_server_scoped(self):
-        self.assertIsNot(self.bot.rank_lock(10, 1), self.bot.rank_lock(11, 1))
+        roles = self.bot.rank_roles
+        self.assertIsNot(roles.rank_lock(10, 1), roles.rank_lock(11, 1))
         self.assertIsNot(self.bot.refresh_lock(10), self.bot.refresh_lock(11))
-        self.assertIsNot(self.bot.role_setup_lock(10), self.bot.role_setup_lock(11))
+        self.assertIsNot(roles.role_setup_lock(10), roles.role_setup_lock(11))
 
     async def test_native_command_options_include_topics_ratings_and_timezones(self):
         self.assertEqual((await rating_choices(None, "35"))[0].value, 3500)

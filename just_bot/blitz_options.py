@@ -1,18 +1,8 @@
 """Shared menu choices and voice-control settings."""
 import re
 
-from .domain import UserError
+from .core.domain import UserError
 
-TOPICS = (
-    "2-sat", "binary search", "bitmasks", "brute force", "chinese remainder theorem",
-    "combinatorics", "constructive algorithms", "data structures", "dfs and similar",
-    "divide and conquer", "dp", "dsu", "expression parsing", "fft", "flows", "games",
-    "geometry", "graph matchings", "graphs", "greedy", "hashing", "implementation",
-    "interactive", "math", "matrices", "meet-in-the-middle", "number theory",
-    "probabilities", "schedules", "shortest paths", "sortings", "string suffix structures",
-    "strings", "ternary search", "trees", "two pointers",
-)
-RATINGS = tuple(range(800, 3501, 100))
 VOICE_LABELS = {"none": "No voice effects", "mute": "Mute", "deafen": "Deafen", "both": "Mute and deafen"}
 
 

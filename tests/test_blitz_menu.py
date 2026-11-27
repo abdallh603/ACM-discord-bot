@@ -5,11 +5,11 @@ from unittest.mock import AsyncMock
 
 from just_bot.activities_store import Activities
 from just_bot.blitz import Blitz
-from just_bot.blitz_options import RATINGS, TOPICS
-from just_bot.service import Community
-from just_bot.storage import Store
-from test_blitz import FakeVoice
-from test_domain import problem
+from just_bot.core.options import RATINGS, TOPICS
+from just_bot.core.service import Community
+from just_bot.core.storage import Store
+from tests.test_blitz import FakeVoice
+from tests.support import problem
 
 HAS_DISCORD = importlib.util.find_spec("discord") is not None
 
@@ -91,7 +91,7 @@ class BlitzMenuTests(unittest.IsolatedAsyncioTestCase):
         self.assertTrue(self.view.match_options()["random_topic"])
 
     async def test_any_and_random_are_exclusive_and_rule_and_standings_toggle(self):
-        from just_bot.domain import UserError
+        from just_bot.core.domain import UserError
         with self.assertRaises(UserError):
             await self.view.choose(self.interaction, "topic", ["any", "dp"])
         await self.view.action(self.interaction, "rule")
@@ -136,7 +136,7 @@ class BlitzMenuTests(unittest.IsolatedAsyncioTestCase):
     async def test_solo_menu_rechecks_organizer_permissions_before_starting(self):
         self.view.opponents = []
         self.interaction.permissions.manage_guild = False
-        from just_bot.domain import UserError
+        from just_bot.core.domain import UserError
         with self.assertRaisesRegex(UserError, "Manage Server"):
             await self.view.action(self.interaction, "start")
         self.assertEqual(self.data.matches(10), [])

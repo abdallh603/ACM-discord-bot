@@ -1,0 +1,6 @@
+name = "example"
+version = "1.0.0"
+description = "A minimal extension: /hello, a greetings table, an hourly loop, and a /help line"
+requires = []
+permissions = []
+default_enabled = false

@@ -9,8 +9,8 @@ from aiohttp.test_utils import TestClient, TestServer
 from just_bot.activity_server import ActivityService, DiscordGateway, ActivityError, create_app
 from just_bot.activity_demo import DemoActivity
 from just_bot.activity_launch import launch_activity, register_entrypoint
-from just_bot.domain import UserError
-import test_tournament as fixtures
+from just_bot.core.domain import UserError
+import tests.test_tournament as fixtures
 
 
 class Gateway:

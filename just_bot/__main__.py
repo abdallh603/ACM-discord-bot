@@ -4,8 +4,10 @@ import logging
 
 from dotenv import load_dotenv
 
-from .bot import RoundForgeBot
-from .config import Settings
+from .core.bot import RoundForgeBot
+from .core.config import Settings
+from .core.extensions import ExtensionError
+from .core.schema import SchemaError
 
 
 def main():
@@ -20,7 +22,10 @@ def main():
     )
     # Discord's verbose HTTP logging is unnecessary in routine operation.
     logging.getLogger("discord.http").setLevel(logging.WARNING)
-    bot = RoundForgeBot(settings)
+    try:
+        bot = RoundForgeBot(settings)
+    except (ExtensionError, SchemaError, ValueError) as exc:
+        raise SystemExit(str(exc)) from exc
     bot.run(settings.token, log_handler=None)
 
 

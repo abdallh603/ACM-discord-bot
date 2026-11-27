@@ -1,8 +1,22 @@
 from __future__ import annotations
 
 import os
+from collections.abc import Mapping
 from dataclasses import dataclass, field
 from pathlib import Path
+
+
+def parse_extensions(raw: str | None) -> tuple[str, ...] | None:
+    """ENABLED_EXTENSIONS: empty/unset = bundled defaults, "none" = core only, else a comma list."""
+    value = (raw or "").strip()
+    if not value:
+        return None
+    if value.casefold() == "none":
+        return ()
+    names = [name.strip().lower() for name in value.split(",") if name.strip()]
+    if "none" in names:
+        raise ValueError("ENABLED_EXTENSIONS=none cannot be combined with extension names.")
+    return tuple(dict.fromkeys(names))
 
 
 @dataclass(frozen=True)
@@ -18,6 +32,10 @@ class Settings:
     activity_port: int = 8080
     client_id: str | None = None
     client_secret: str | None = field(default=None, repr=False)
+    # None selects every bundled extension that is enabled by default; () is core only.
+    extensions: tuple[str, ...] | None = None
+    # Raw configuration for extensions' own settings; empty unless loaded from the environment.
+    env: Mapping[str, str] = field(default_factory=dict, repr=False, compare=False)
 
     @classmethod
     def from_env(cls) -> Settings:
@@ -59,4 +77,5 @@ class Settings:
             raise ValueError("Set DISCORD_CLIENT_ID and DISCORD_CLIENT_SECRET locally to enable the voice activity.")
         return cls(token, guild_id or None, Path(os.getenv("DATABASE_PATH", "data/roundforge.sqlite3")),
                    channels, level, legacy_guild_id or None, enabled,
-                   os.getenv("ACTIVITY_HOST", "127.0.0.1").strip() or "127.0.0.1", port, client_id, secret)
+                   os.getenv("ACTIVITY_HOST", "127.0.0.1").strip() or "127.0.0.1", port, client_id, secret,
+                   parse_extensions(os.getenv("ENABLED_EXTENSIONS")), dict(os.environ))

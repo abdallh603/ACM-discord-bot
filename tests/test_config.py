@@ -2,7 +2,7 @@ import os
 import unittest
 from unittest.mock import patch
 
-from just_bot.config import Settings
+from just_bot.core.config import Settings, parse_extensions
 
 
 class ConfigTests(unittest.TestCase):
@@ -43,3 +43,17 @@ class ConfigTests(unittest.TestCase):
             with patch.dict(os.environ, {"DISCORD_TOKEN": "fixture", field: value}, clear=True):
                 with self.assertRaises(ValueError):
                     Settings.from_env()
+
+    def test_enabled_extensions_default_none_and_explicit_lists(self):
+        self.assertIsNone(parse_extensions(None))
+        self.assertIsNone(parse_extensions("  "))
+        self.assertEqual(parse_extensions("none"), ())
+        self.assertEqual(parse_extensions(" Blitz, tournament,blitz ,"), ("blitz", "tournament"))
+        with self.assertRaisesRegex(ValueError, "cannot be combined"):
+            parse_extensions("none,blitz")
+        env = {"DISCORD_TOKEN": "fixture", "ENABLED_EXTENSIONS": "daily,rank"}
+        with patch.dict(os.environ, env, clear=True):
+            settings = Settings.from_env()
+        self.assertEqual(settings.extensions, ("daily", "rank"))
+        self.assertEqual(settings.env["ENABLED_EXTENSIONS"], "daily,rank")
+        self.assertNotIn("fixture", repr(settings))

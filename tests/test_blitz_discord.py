@@ -5,7 +5,7 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 from just_bot.activities_store import Activities
 from just_bot.blitz import validate_options
-from just_bot.storage import Store
+from just_bot.core.storage import Store
 
 HAS_DISCORD = importlib.util.find_spec("discord") is not None
 

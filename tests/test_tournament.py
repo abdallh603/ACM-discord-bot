@@ -3,12 +3,12 @@ from unittest.mock import AsyncMock
 
 from just_bot.activities_store import Activities
 from just_bot.blitz import Blitz
-from just_bot.domain import UserError
-from just_bot.service import Community
-from just_bot.storage import Store
+from just_bot.core.domain import UserError
+from just_bot.core.service import Community
+from just_bot.core.storage import Store
 from just_bot.tournament import Tournaments, seed_order
-from test_blitz import FakeVoice
-from test_domain import problem, submission
+from tests.test_blitz import FakeVoice
+from tests.support import problem, submission
 
 
 class TournamentPlatform:

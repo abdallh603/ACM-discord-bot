@@ -10,7 +10,7 @@ from collections import OrderedDict
 import discord
 from PIL import Image, ImageDraw, ImageOps
 
-from .profile_card import MAX_AVATAR_BYTES, draw_avatar, fetch_avatar, fitted_text, font
+from .core.images import MAX_AVATAR_BYTES, draw_avatar, fetch_avatar, fitted_text, font
 
 BACKGROUND = "#0c1320"
 PANEL = "#172236"

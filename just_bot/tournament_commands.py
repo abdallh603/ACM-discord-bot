@@ -8,11 +8,12 @@ from typing import Literal
 import discord
 from discord import app_commands
 
-from .blitz_options import TOPICS, VOICE_LABELS, duration_label, voice_mode
+from .blitz_options import VOICE_LABELS, duration_label, voice_mode
+from .core.options import TOPICS
 from .blitz_views import send_invite
-from .command_options import rating_choices
-from .domain import UserError
-from .presentation import embed, safe
+from .core.options import rating_choices
+from .core.domain import UserError
+from .core.presentation import embed, safe
 from .tournament_image import TournamentPictures
 
 log = logging.getLogger(__name__)

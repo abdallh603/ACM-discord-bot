@@ -8,8 +8,9 @@ import re
 import time
 from urllib.parse import urlparse
 
-from .blitz_options import TOPICS, voice_settings
-from .domain import UserError, accepted_submission, problem_key, within_window
+from .blitz_options import voice_settings
+from .core.options import TOPICS
+from .core.domain import UserError, accepted_submission, problem_key, within_window
 
 log = logging.getLogger(__name__)
 TERMINAL = {"finished", "cancelled", "timed_out", "unresolved"}
