@@ -28,26 +28,11 @@ async def defer(interaction: discord.Interaction, *, private: bool = False):
 
 def install_legacy(bot):
     ext = ExtensionContext(bot, Manifest("legacy", "0", "Features not yet moved", None, __name__), bot.extensions)
-    install_practice(ext)
     install_rank(ext)
     install_daily(ext)
     install_blitz(ext)
     install_tournament(ext)
     install_activity(ext)
-
-
-# -- practice ----------------------------------------------------------------------------
-def install_practice(ext):
-    from .activities_store import Activities
-    from .activity_commands import Training, Upsolve
-    from .practice import Practice
-    bot = ext.bot
-    bot.activities = Activities(bot.store)
-    bot.practice = Practice(bot.community, bot.activities)
-    ext.add_command(Training(bot), order=90)
-    ext.add_command(Upsolve(bot), order=100)
-    ext.help("`/training start` → `/training next` — beginner tracks", block="games", order=10)
-    ext.help("`/upsolve start` → `/upsolve check` — post-contest goals", block="games", order=20)
 
 
 # -- rank roles --------------------------------------------------------------------------
@@ -336,10 +321,12 @@ def install_daily(ext):
 
 # -- blitz -------------------------------------------------------------------------------
 def install_blitz(ext):
+    from .activities_store import Activities
     from .activity_commands import BlitzCommands
     from .blitz import Blitz
     from .blitz_discord import DiscordBlitz
     bot = ext.bot
+    bot.activities = Activities(bot.store)
     bot.blitz = Blitz(bot.community, bot.activities, DiscordBlitz(bot))
     ext.add_command(BlitzCommands(bot), order=110)
 

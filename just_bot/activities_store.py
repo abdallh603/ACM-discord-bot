@@ -1,4 +1,4 @@
-"""Durable practice goals and blitz recovery records, sharing the main SQLite connection."""
+"""Durable blitz recovery records, sharing the main SQLite connection."""
 from __future__ import annotations
 
 import json
@@ -10,10 +10,6 @@ from .core.domain import UserError
 from .tournament_store import TOURNAMENT_SCHEMA
 
 ACTIVITY_SCHEMA = """
-CREATE TABLE IF NOT EXISTS practice_goals (
-    guild_id INTEGER NOT NULL, user_id INTEGER NOT NULL, kind TEXT NOT NULL,
-    data TEXT NOT NULL, PRIMARY KEY(guild_id, user_id, kind)
-);
 CREATE TABLE IF NOT EXISTS blitz_matches (
     id TEXT PRIMARY KEY, guild_id INTEGER NOT NULL, creator_id INTEGER NOT NULL,
     state TEXT NOT NULL, options TEXT NOT NULL,
@@ -41,25 +37,6 @@ class Activities:
     def __init__(self, store):
         self.store = store
         self.db = store.db
-
-    def goal(self, guild, user, kind):
-        row = self.db.execute(
-            "SELECT data FROM practice_goals WHERE guild_id=? AND user_id=? AND kind=?",
-            (guild, user, kind),
-        ).fetchone()
-        return json.loads(row[0]) if row else None
-
-    def save_goal(self, guild, user, kind, data):
-        with self.db:
-            self.db.execute(
-                "INSERT INTO practice_goals VALUES (?, ?, ?, ?) ON CONFLICT(guild_id,user_id,kind) "
-                "DO UPDATE SET data=excluded.data", (guild, user, kind, json.dumps(data)),
-            )
-
-    def delete_goal(self, guild, user, kind):
-        with self.db:
-            self.db.execute("DELETE FROM practice_goals WHERE guild_id=? AND user_id=? AND kind=?",
-                            (guild, user, kind))
 
     def slot(self, guild, user):
         return self.db.execute("SELECT * FROM blitz_slots WHERE guild_id=? AND user_id=?",

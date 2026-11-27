@@ -1,11 +1,13 @@
+"""Beginner training tracks and post-contest upsolving goals with saved progress."""
 from __future__ import annotations
 
 import asyncio
 import random
 import time
 
-from .activities_store import Activities
-from .core.domain import UserError, accepted_submission, problem_key
+from just_bot.core.api import UserError, accepted_submission, problem_key
+
+from .store import PracticeStore
 
 TRACKS = {
     "fundamentals": {
@@ -36,10 +38,10 @@ TRACKS = {
 
 
 class Practice:
-    def __init__(self, community, activities: Activities):
+    def __init__(self, community, store: PracticeStore):
         self.community = community
         self.cf = community.cf
-        self.activities = activities
+        self.store = store
         self.lock = asyncio.Lock()
 
     async def _history(self, guild, user, goal=None):
@@ -64,13 +66,13 @@ class Practice:
         if track not in TRACKS:
             raise UserError("Choose fundamentals, greedy, binary_search, or dp.")
         async with self.lock:
-            if self.activities.goal(guild, user, "training"):
+            if self.store.goal(guild, user, "training"):
                 raise UserError("You already have a training track. Use /training stop before replacing it.")
             member, history = await self._history(guild, user)
             stage = await self._stage(track, 0, history, [])
             goal = {"track": track, "handle": member["handle"], "stage": 0, "stages": [stage], "complete": False}
             self._check_link(guild, user, goal)
-            self.activities.save_goal(guild, user, "training", goal)
+            self.store.save_goal(guild, user, "training", goal)
             return goal
 
     def _check_link(self, guild, user, goal):
@@ -80,7 +82,7 @@ class Practice:
 
     async def training(self, guild, user, *, advance=False):
         async with self.lock:
-            goal = self.activities.goal(guild, user, "training")
+            goal = self.store.goal(guild, user, "training")
             if not goal:
                 raise UserError("Start a track with /training start first.")
             _, history = await self._history(guild, user, goal)
@@ -98,14 +100,14 @@ class Practice:
                     goal["stages"].append(await self._stage(goal["track"], goal["stage"], history, goal["stages"]))
                     solved = []
             self._check_link(guild, user, goal)
-            self.activities.save_goal(guild, user, "training", goal)
+            self.store.save_goal(guild, user, "training", goal)
             return goal, set(solved)
 
     async def start_upsolve(self, guild, user, contest_id, hours=48, count=3):
         if not 1 <= contest_id < 100000 or not 1 <= hours <= 168 or not 1 <= count <= 5:
             raise UserError("Use a regular CF contest, 1–168 hours, and 1–5 problems.")
         async with self.lock:
-            existing = self.activities.goal(guild, user, "upsolve")
+            existing = self.store.goal(guild, user, "upsolve")
             if existing and existing["ends_at"] > int(time.time()):
                 raise UserError("You already have an upsolving goal. Use /upsolve stop to replace it.")
             result = await self.cf.call("contest.standings", contestId=contest_id,
@@ -125,12 +127,12 @@ class Practice:
             goal = {"handle": member["handle"], "contest_id": contest_id, "contest_name": contest["name"],
                     "starts_at": now, "ends_at": now + hours * 3600, "problems": candidates[:count]}
             self._check_link(guild, user, goal)
-            self.activities.save_goal(guild, user, "upsolve", goal)
+            self.store.save_goal(guild, user, "upsolve", goal)
             return goal
 
     async def upsolve(self, guild, user):
         async with self.lock:
-            goal = self.activities.goal(guild, user, "upsolve")
+            goal = self.store.goal(guild, user, "upsolve")
             if not goal:
                 raise UserError("Start a post-contest goal with /upsolve start.")
             _, history = await self._history(guild, user, goal)
@@ -141,4 +143,4 @@ class Practice:
 
     async def stop(self, guild, user, kind):
         async with self.lock:
-            self.activities.delete_goal(guild, user, kind)
+            self.store.delete_goal(guild, user, kind)

@@ -1,0 +1,6 @@
+name = "practice"
+version = "1.0.0"
+description = "Beginner training tracks and post-contest upsolving goals with saved progress"
+requires = []
+permissions = []
+default_enabled = true

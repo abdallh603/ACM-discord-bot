@@ -1,12 +1,20 @@
+import tempfile
 import unittest
+from pathlib import Path
 from unittest.mock import AsyncMock
 
-from just_bot.activities_store import Activities
+from extensions.practice.engine import Practice
+from extensions.practice.store import MIGRATIONS, PracticeStore
 from just_bot.core.domain import UserError, problem_key
-from just_bot.practice import Practice
+from just_bot.core.schema import migrate
 from just_bot.core.service import Community
 from just_bot.core.storage import Store
 from tests.support import problem, submission
+
+
+def practice_store(store):
+    migrate(store.db, "practice", MIGRATIONS)
+    return PracticeStore(store.db)
 
 
 class PracticeTests(unittest.IsolatedAsyncioTestCase):
@@ -14,7 +22,7 @@ class PracticeTests(unittest.IsolatedAsyncioTestCase):
         self.store = Store(":memory:")
         self.store.start_link(10, 1, "tester", "nonce", 9999999999)
         self.store.complete_link(10, 1, "nonce", {"handle": "tester"}, 1)
-        self.data = Activities(self.store)
+        self.data = practice_store(self.store)
         self.cf = AsyncMock()
         self.cf.submissions.return_value = []
         pool = [problem(100 + level * 10 + i, rating=rating, tags=["implementation"])
@@ -54,7 +62,7 @@ class PracticeTests(unittest.IsolatedAsyncioTestCase):
 
     async def test_training_saved_assignments_are_reused_after_service_restart(self):
         first = await self.practice.start_training(10, 1, "fundamentals")
-        replacement = Practice(self.practice.community, Activities(self.store))
+        replacement = Practice(self.practice.community, PracticeStore(self.store.db))
         second, _ = await replacement.training(10, 1)
         self.assertEqual(first, second)
         self.assertEqual(self.cf.problems.await_count, 1)
@@ -95,3 +103,17 @@ class PracticeTests(unittest.IsolatedAsyncioTestCase):
         await self.practice.stop(10, 1, "training")
         self.assertIsNone(self.data.goal(10, 1, "training"))
         self.assertEqual(self.data.goal(10, 1, "upsolve"), {"test": "retained"})
+
+
+class PracticePersistenceTests(unittest.TestCase):
+    def test_goals_survive_reopening_database(self):
+        with tempfile.TemporaryDirectory() as temp:
+            path = Path(temp) / "bot.sqlite3"
+            store = Store(path)
+            practice_store(store).save_goal(10, 1, "training", {"stage": 1, "handle": "one"})
+            store.close()
+            reopened = Store(path)
+            try:
+                self.assertEqual(practice_store(reopened).goal(10, 1, "training")["stage"], 1)
+            finally:
+                reopened.close()
